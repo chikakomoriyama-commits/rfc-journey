@@ -191,6 +191,10 @@
     <input id="dReferrer" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;" placeholder="例: 松岡克政さん">
     <label>所属・関連法人（きっかけになった企業/NPOなど）</label>
     <input id="dCompany" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;" placeholder="例: NPO法人◯◯、株式会社△△">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+      <input type="checkbox" id="dInternal" style="width:16px;height:16px;accent-color:var(--accent);">
+      内部メンバー（RFC運営側。リストと分析から除外されます）
+    </label>
     <div class="drow">
       <div>
         <label>現在の状態</label>
@@ -233,7 +237,7 @@ const SUPABASE_URL = "https://googdxrbzgwdwzimehio.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_st8Ylnt61zDYX0ogwz7mpw_3x1t-Tzk";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let persons=[], tpsByPerson={}, current=null, filtered=[];
-let routeFilter="", triggerFilter="", tagFilter="", userEmail="", jpFirst=true;
+let routeFilter="", triggerFilter="", tagFilter="", userEmail="", jpFirst=true, showInternal=false;
 
 async function signIn(){ await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href}}); }
 sb.auth.onAuthStateChange(async (_e,session)=>{ if(session){ userEmail=session.user.email||''; document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; await load(); } });
@@ -278,6 +282,11 @@ function buildChips(){
   jc.textContent=jpFirst?'🌐 海外は末尾':'🌐 海外も混在';
   jc.onclick=()=>{jpFirst=!jpFirst;buildChips();render();};
   el.appendChild(jc);
+  const ic=document.createElement('div');
+  ic.className='chip'+(showInternal?' on':'');
+  ic.textContent='👥 内部メンバー'+(showInternal?'表示中':'非表示');
+  ic.onclick=()=>{showInternal=!showInternal;buildChips();render();};
+  el.appendChild(ic);
   const el2=document.getElementById('triggerChips'); el2.innerHTML='';
   const mk2=(label)=>{const c=document.createElement('div');c.className='chip trigger'+(triggerFilter===label?' on':'');c.textContent='🔎 '+label;
     c.onclick=()=>{triggerFilter=(triggerFilter===label?'':label);buildChips();render();};el2.appendChild(c);};
@@ -312,6 +321,7 @@ function render(){
   const sf=document.getElementById('statusF').value;
   const sort=document.getElementById('sortF').value;
   filtered=persons.filter(p=>{
+    if(!showInternal && p.is_internal)return false;
     if(routeFilter && routeOf(p)!==routeFilter)return false;
     if(yf && p.first_year!==yf)return false;
     if(sf && (p.review_status||'未着手')!==sf)return false;
@@ -361,6 +371,7 @@ function openDetail(id){
   document.getElementById('dFacts').innerHTML=facts;
   renderJourney(id);
   document.getElementById('tpForm').classList.remove('open');
+  document.getElementById('dInternal').checked=!!current.is_internal;
   document.getElementById('dNameEdit').value=current.name||'';
   document.getElementById('dEmailEdit').value=current.email||'';
   currentTags=(current.tags||'').split(',').map(t=>t.trim()).filter(Boolean);
@@ -525,6 +536,7 @@ async function save(){
     aware_year:document.getElementById('dAware').value,
     referrer:document.getElementById('dReferrer').value,
     tags:currentTags.join(', '),
+    is_internal:document.getElementById('dInternal').checked,
     name:document.getElementById('dNameEdit').value.trim()||current.name,
     email:document.getElementById('dEmailEdit').value.trim(),
     updated_by:userEmail, updated_at:new Date().toISOString()};
@@ -561,8 +573,10 @@ function switchTab(t){
 }
 function renderAnalytics(){
   const v=document.getElementById('analyticsView');
+  const persons_all=persons;
+  const persons_a=persons.filter(p=>!p.is_internal);
   const byYear={};
-  persons.forEach(p=>{ if(!p.first_year)return; (byYear[p.first_year]=byYear[p.first_year]||[]).push(p); });
+  persons_a.forEach(p=>{ if(!p.first_year)return; (byYear[p.first_year]=byYear[p.first_year]||[]).push(p); });
   const years=Object.keys(byYear).sort();
   const maxN=Math.max(...years.map(y=>byYear[y].length));
   let cohortRows='';
@@ -577,7 +591,7 @@ function renderAnalytics(){
   });
   // FST→next conversion
   let fstOnly=0,fstToSccp=0,fstToFbs=0,fstTotal=0;
-  persons.forEach(p=>{
+  persons_a.forEach(p=>{
     const tp=(tpsByPerson[p.id]||[]).map(t=>t.program).join(' ');
     if(/FST|創り出す思考/.test(tp)){ fstTotal++;
       if(/SCCP/.test(tp))fstToSccp++;
@@ -587,7 +601,7 @@ function renderAnalytics(){
   });
   // status distribution
   const st={};
-  persons.forEach(p=>{const s=p.current_status||'(未記入)';st[s]=(st[s]||0)+1;});
+  persons_a.forEach(p=>{const s=p.current_status||'(未記入)';st[s]=(st[s]||0)+1;});
   let stRows='';
   Object.entries(st).sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{
     stRows+=`<tr><td>${k}</td><td class="num">${n}</td></tr>`;
@@ -595,11 +609,11 @@ function renderAnalytics(){
   // triggers count
   let trRows='';
   Object.entries(TRIGGERS).forEach(([name,fn])=>{
-    trRows+=`<tr><td>${name}</td><td class="num">${persons.filter(fn).length}人</td></tr>`;
+    trRows+=`<tr><td>${name}</td><td class="num">${persons_a.filter(fn).length}人</td></tr>`;
   });
   // channel effectiveness
   const ch={};
-  persons.forEach(p=>{
+  persons_a.forEach(p=>{
     const c=p.channel||'(未記入)';
     ch[c]=ch[c]||{n:0,paid:0,active:0,lagSum:0,lagN:0};
     ch[c].n++;
@@ -616,7 +630,7 @@ function renderAnalytics(){
   });
   // referrer ranking
   const rf={};
-  persons.forEach(p=>{if(p.referrer)rf[p.referrer]=(rf[p.referrer]||0)+1;});
+  persons_a.forEach(p=>{if(p.referrer)rf[p.referrer]=(rf[p.referrer]||0)+1;});
   let rfRows='';
   Object.entries(rf).sort((a,b)=>b[1]-a[1]).slice(0,15).forEach(([k,n])=>{
     rfRows+=`<tr><td>${k}</td><td class="num">${n}人</td></tr>`;
