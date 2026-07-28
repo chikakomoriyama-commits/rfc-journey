@@ -120,6 +120,7 @@
         <option value="途中">途中のみ</option>
         <option value="完了">完了のみ</option>
       </select>
+      <button onclick="addPerson()" style="padding:9px 18px;border:0;border-radius:999px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">＋ 新しい人を追加</button>
       <select id="sortF" onchange="render()">
         <option value="recent">並び: 最終接触が新しい順</option>
         <option value="old">並び: 初回接触が古い順</option>
@@ -473,6 +474,19 @@ async function step(dir){
   const idx=filtered.findIndex(p=>p.id===current.id);
   const next=filtered[idx+dir];
   if(next)openDetail(next.id);
+}
+async function addPerson(){
+  const name=prompt('お名前を入力してください（あとから編集できます）');
+  if(!name||!name.trim())return;
+  const {data,error}=await sb.from('persons').insert({
+    name:name.trim(), updated_by:userEmail, updated_at:new Date().toISOString()
+  }).select();
+  if(error){alert('追加できませんでした: '+error.message);return;}
+  const p=data[0];
+  persons.push(p);
+  tpsByPerson[p.id]=[];
+  buildChips(); render();
+  openDetail(p.id);
 }
 function switchTab(t){
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.tab===t));
