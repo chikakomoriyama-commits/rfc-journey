@@ -208,7 +208,7 @@ const SUPABASE_URL = "https://googdxrbzgwdwzimehio.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_st8Ylnt61zDYX0ogwz7mpw_3x1t-Tzk";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let persons=[], tpsByPerson={}, current=null, filtered=[];
-let routeFilter="", triggerFilter="", tagFilter="", userEmail="";
+let routeFilter="", triggerFilter="", tagFilter="", userEmail="", jpFirst=true;
 
 async function signIn(){ await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href}}); }
 sb.auth.onAuthStateChange(async (_e,session)=>{ if(session){ userEmail=session.user.email||''; document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; await load(); } });
@@ -248,6 +248,11 @@ function buildChips(){
     c.onclick=()=>{routeFilter=val;buildChips();render();};el.appendChild(c);};
   mk('全経路','');
   types.forEach(t=>mk(t,t));
+  const jc=document.createElement('div');
+  jc.className='chip'+(jpFirst?'':' on');
+  jc.textContent=jpFirst?'🌐 海外は末尾':'🌐 海外も混在';
+  jc.onclick=()=>{jpFirst=!jpFirst;buildChips();render();};
+  el.appendChild(jc);
   const el2=document.getElementById('triggerChips'); el2.innerHTML='';
   const mk2=(label)=>{const c=document.createElement('div');c.className='chip trigger'+(triggerFilter===label?' on':'');c.textContent='🔎 '+label;
     c.onclick=()=>{triggerFilter=(triggerFilter===label?'':label);buildChips();render();};el2.appendChild(c);};
@@ -263,6 +268,7 @@ function buildChips(){
   }
 }
 
+function isJP(n){ return /[\u3040-\u30ff\u3400-\u9fff]/.test(n||''); }
 function fmtDate(iso){ if(!iso)return ''; const d=new Date(iso); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; }
 
 function render(){
@@ -284,6 +290,7 @@ function render(){
   if(sort==='recent') filtered.sort((a,b)=>(b.last_year||'').localeCompare(a.last_year||'')|| (b.first_year||'').localeCompare(a.first_year||''));
   else if(sort==='old') filtered.sort((a,b)=>(a.first_year||'9999').localeCompare(b.first_year||'9999'));
   else filtered.sort((a,b)=>(tpsByPerson[b.id]||[]).length-(tpsByPerson[a.id]||[]).length);
+  if(jpFirst) filtered.sort((a,b)=>(isJP(a.name)?0:1)-(isJP(b.name)?0:1));
 
   const done=persons.filter(p=>p.review_status==='完了').length;
   const wip=persons.filter(p=>p.review_status==='途中').length;
