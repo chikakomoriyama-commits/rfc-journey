@@ -245,14 +245,14 @@ const TRIGGERS = {
     const tp=(tpsByPerson[p.id]||[]).map(t=>t.program).join(' ');
     return /FST|創り出す思考/.test(tp) && !/SCCP|FBS/.test(tp);
   },
-  '倶楽部/前史のみ': p => p.route_type==='前史のみ' || ((tpsByPerson[p.id]||[]).length===0 && p.prehistory),
+  '倶楽部/前史のみ': p => routeOf(p)==='入口接点のみ(倶楽部・前史)',
   '1回きりで終了': p => (tpsByPerson[p.id]||[]).length===1,
   '4年以上継続': p => p.first_year && p.last_year && (parseInt(p.last_year)-parseInt(p.first_year))>=4,
   '2年以上動きなし': p => p.last_year && parseInt(p.last_year) <= 2024,
 };
 
 function buildChips(){
-  const types=[...new Set(persons.map(p=>p.route_type).filter(Boolean))];
+  const types=[...new Set(persons.map(p=>routeOf(p)))].sort();
   const el=document.getElementById('chips'); el.innerHTML='';
   const mk=(label,val)=>{const c=document.createElement('div');c.className='chip'+(routeFilter===val?' on':'');c.textContent=label;
     c.onclick=()=>{routeFilter=val;buildChips();render();};el.appendChild(c);};
@@ -278,6 +278,16 @@ function buildChips(){
   }
 }
 
+// 入口接点(ソフトな接点)の判定パターン
+const SOFT_RE = /創造プロセス倶楽部|STARクラブ|STAR ?クラブ|ディベート道場|読書会|メルマガ/;
+function routeOf(p){
+  const tp=(tpsByPerson[p.id]||[]);
+  const hasCourse = tp.some(t=>!SOFT_RE.test(t.program||''));
+  if(hasCourse) return '講座受講';
+  const hasSoft = tp.length>0 || (p.prehistory||'').trim();
+  if(hasSoft) return '入口接点のみ(倶楽部・前史)';
+  return '記録薄';
+}
 function isJP(n){ return /[\u3040-\u30ff\u3400-\u9fff]/.test(n||''); }
 function fmtDate(iso){ if(!iso)return ''; const d=new Date(iso); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; }
 
@@ -287,7 +297,7 @@ function render(){
   const sf=document.getElementById('statusF').value;
   const sort=document.getElementById('sortF').value;
   filtered=persons.filter(p=>{
-    if(routeFilter && p.route_type!==routeFilter)return false;
+    if(routeFilter && routeOf(p)!==routeFilter)return false;
     if(yf && p.first_year!==yf)return false;
     if(sf && (p.review_status||'未着手')!==sf)return false;
     if(triggerFilter && !TRIGGERS[triggerFilter](p))return false;
@@ -327,7 +337,7 @@ function openDetail(id){
   document.getElementById('dName').textContent=current.name;
   const upd=current.updated_by?` ・ 最終更新 ${fmtDate(current.updated_at)}（${current.updated_by.split('@')[0]}）`:'';
   const comp=current.company?` ・ ${current.company}`:'';
-  document.getElementById('dMeta').textContent=`${current.email||'email不明'}${comp} ・ ${current.route_type}${upd}`;
+  document.getElementById('dMeta').textContent=`${current.email||'email不明'}${comp} ・ ${routeOf(current)}${upd}`;
   let facts='';
   if(current.kikkake)facts+=`<div class="fact"><b>知ったきっかけ:</b> ${current.kikkake}</div>`;
   if(current.purpose)facts+=`<div class="fact"><b>初回の参加目的:</b> ${current.purpose}</div>`;
