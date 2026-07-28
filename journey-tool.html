@@ -136,6 +136,18 @@
         <button onclick="addTouchpoint()">追加</button>
       </div>
     </div>
+    <div class="drow">
+      <div>
+        <label>認知チャネル（どこで知ったか）</label>
+        <select id="dChannel"><option value="">（未記入）</option><option>書籍</option><option>紹介</option><option>Podcast</option><option>読書会</option><option>創造プロセス倶楽部</option><option>ロバート来日WS</option><option>STARクラブ/道場</option><option>セミナー・登壇</option><option>Web検索</option><option>SNS</option><option>その他</option></select>
+      </div>
+      <div>
+        <label>知った年（だいたいで可）</label>
+        <input id="dAware" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;" placeholder="例: 2019">
+      </div>
+    </div>
+    <label>紹介者（紹介の場合、誰から）</label>
+    <input id="dReferrer" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;" placeholder="例: 松岡克政さん">
     <label>所属・関連法人（きっかけになった企業/NPOなど）</label>
     <input id="dCompany" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;" placeholder="例: NPO法人◯◯、株式会社△△">
     <div class="drow">
@@ -237,7 +249,7 @@ function render(){
     if(sf && (p.review_status||'未着手')!==sf)return false;
     if(triggerFilter && !TRIGGERS[triggerFilter](p))return false;
     if(q){ const tp=(tpsByPerson[p.id]||[]).map(t=>t.program).join(' ');
-      const hay=(p.name+' '+(p.email||'')+' '+tp+' '+(p.prehistory||'')+' '+(p.memory_note||'')+' '+(p.company||'')).toLowerCase();
+      const hay=(p.name+' '+(p.email||'')+' '+tp+' '+(p.prehistory||'')+' '+(p.memory_note||'')+' '+(p.company||'')+' '+(p.referrer||'')+' '+(p.channel||'')).toLowerCase();
       if(!hay.includes(q))return false; }
     return true;
   });
@@ -279,6 +291,9 @@ function openDetail(id){
   document.getElementById('dFacts').innerHTML=facts;
   renderJourney(id);
   document.getElementById('tpForm').classList.remove('open');
+  document.getElementById('dChannel').value=current.channel||'';
+  document.getElementById('dAware').value=current.aware_year||'';
+  document.getElementById('dReferrer').value=current.referrer||'';
   document.getElementById('dCompany').value=current.company||'';
   document.getElementById('dStatus').value=current.current_status||'';
   document.getElementById('dReview').value=current.review_status||'未着手';
@@ -314,6 +329,9 @@ async function save(){
     review_status:document.getElementById('dReview').value,
     memory_note:document.getElementById('dNote').value,
     company:document.getElementById('dCompany').value,
+    channel:document.getElementById('dChannel').value,
+    aware_year:document.getElementById('dAware').value,
+    referrer:document.getElementById('dReferrer').value,
     updated_by:userEmail, updated_at:new Date().toISOString()};
   const {error}=await sb.from('persons').update(upd).eq('id',current.id);
   if(error){document.getElementById('saveMsg').textContent='エラー: '+error.message;return;}
@@ -370,7 +388,36 @@ function renderAnalytics(){
   Object.entries(TRIGGERS).forEach(([name,fn])=>{
     trRows+=`<tr><td>${name}</td><td class="num">${persons.filter(fn).length}人</td></tr>`;
   });
+  // channel effectiveness
+  const ch={};
+  persons.forEach(p=>{
+    const c=p.channel||'(未記入)';
+    ch[c]=ch[c]||{n:0,paid:0,active:0,lagSum:0,lagN:0};
+    ch[c].n++;
+    const tp=(tpsByPerson[p.id]||[]);
+    if(tp.some(t=>t.fee&&t.fee!=='0'&&t.fee!=='¥0'))ch[c].paid++;
+    if(p.current_status==='能動的に創造している'||p.current_status==='学び続けている')ch[c].active++;
+    if(p.aware_year&&p.first_year){const lag=parseInt(p.first_year)-parseInt(p.aware_year);
+      if(!isNaN(lag)&&lag>=0&&lag<20){ch[c].lagSum+=lag;ch[c].lagN++;}}
+  });
+  let chRows='';
+  Object.entries(ch).sort((a,b)=>b[1].n-a[1].n).forEach(([k,s])=>{
+    const lag=s.lagN?(s.lagSum/s.lagN).toFixed(1)+'年':'—';
+    chRows+=`<tr><td>${k}</td><td class="num">${s.n}</td><td class="num">${s.paid} (${Math.round(s.paid/s.n*100)}%)</td><td class="num">${s.active}</td><td class="num">${lag}</td></tr>`;
+  });
+  // referrer ranking
+  const rf={};
+  persons.forEach(p=>{if(p.referrer)rf[p.referrer]=(rf[p.referrer]||0)+1;});
+  let rfRows='';
+  Object.entries(rf).sort((a,b)=>b[1]-a[1]).slice(0,15).forEach(([k,n])=>{
+    rfRows+=`<tr><td>${k}</td><td class="num">${n}人</td></tr>`;
+  });
   v.innerHTML=`
+  <div class="insight"><h3>認知チャネル別の有効性（流入 → 有料転換 → アクティブ）</h3>
+    <table><tr><th>チャネル</th><th>人数</th><th>有料講座へ</th><th>現在アクティブ</th><th>認知→接触の平均年数</th></tr>${chRows}</table>
+    <p style="font-size:11px;color:var(--gray);margin-top:8px">※チャネル・現在の状態の記入が進むほど精度が上がります</p></div>
+  <div class="insight"><h3>紹介ハブ（誰が人を連れてきているか）</h3>
+    <table>${rfRows||'<tr><td colspan=2 style="color:var(--gray)">紹介者の記入がまだありません</td></tr>'}</table></div>
   <div class="insight"><h3>初回接触コホート（年別の新規と定着）</h3>
     <table><tr><th>初回年</th><th>新規</th><th></th><th>3接点以上</th><th>2025年以降も接点</th></tr>${cohortRows}</table></div>
   <div class="insight"><h3>FSTからの分岐（FST受講 ${fstTotal}人）</h3>
