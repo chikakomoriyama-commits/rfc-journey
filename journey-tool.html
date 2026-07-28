@@ -357,7 +357,6 @@ function openDetail(id){
   if(current.kikkake)facts+=`<div class="fact"><b>知ったきっかけ:</b> ${current.kikkake}</div>`;
   if(current.purpose)facts+=`<div class="fact"><b>初回の参加目的:</b> ${current.purpose}</div>`;
   if(current.prehistory)facts+=`<div class="fact"><b>前史(STARクラブ/道場):</b> ${current.prehistory}</div>`;
-  if(current.san_podcast)facts+=`<div class="fact"><b>SAN/Podcast:</b> ${current.san_podcast}</div>`;
   if(current.personal_consulting)facts+=`<div class="fact"><b>パーソナルコンサルティング</b> 実施あり</div>`;
   document.getElementById('dFacts').innerHTML=facts;
   renderJourney(id);
@@ -482,7 +481,6 @@ async function doMerge(targetId){
     email:pick(dst.email,src.email), company:pick(dst.company,src.company),
     channel:pick(dst.channel,src.channel), referrer:pick(dst.referrer,src.referrer),
     aware_year:pick(dst.aware_year,src.aware_year), prehistory:pick(dst.prehistory,src.prehistory),
-    san_podcast:pick(dst.san_podcast,src.san_podcast),
     current_status:pick(dst.current_status,src.current_status),
     review_status:pick(dst.review_status,src.review_status),
     personal_consulting:!!(dst.personal_consulting||src.personal_consulting),
