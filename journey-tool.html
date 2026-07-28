@@ -74,6 +74,14 @@
   .tagchip.sel{background:var(--accent);color:#fff;border-color:var(--accent);}
   .tagchip.newbtn{border-style:dashed;color:var(--gray);}
   .listtag{font-size:10.5px;padding:2px 8px;border-radius:999px;background:#efe6d8;color:#6b5a3e;margin-left:4px;}
+  .mergebtn{font-size:12px;color:var(--gray);cursor:pointer;font-weight:600;}
+  .mergebtn:hover{color:var(--accent);}
+  .mergebox{background:#fdf6f6;border:1px solid #e4c9cc;border-radius:10px;padding:12px;margin:8px 0 14px;display:none;}
+  .mergebox.open{display:block;}
+  .mergebox input{width:100%;padding:9px;border:1px solid var(--line);border-radius:7px;font-size:13px;background:#fff;}
+  .mres{max-height:200px;overflow-y:auto;margin-top:8px;display:flex;flex-direction:column;gap:4px;}
+  .mres div{padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;cursor:pointer;font-size:13px;}
+  .mres div:hover{border-color:var(--accent);}
   .jedit{font-size:11px;color:var(--gray);cursor:pointer;margin-left:8px;}
   .jedit:hover{color:var(--accent);}
   .jrow{display:flex;align-items:baseline;flex-wrap:wrap;}
@@ -143,6 +151,12 @@
     <div id="dFacts"></div>
     <div class="journey" id="dJourney"></div>
     <div class="addtp" onclick="toggleTpForm()">＋ 接点を追加（パーソナルコンサル・面談・その他）</div>
+    <div class="mergebtn" onclick="toggleMerge()" style="margin:2px 0 6px 19px;">⇄ この人を別の人に統合する（同一人物・旧姓など）</div>
+    <div class="mergebox" id="mergeBox">
+      <div style="font-size:12px;color:var(--gray);margin-bottom:6px;">この人の履歴を、選んだ人にまとめます。<b>この人のレコードは削除されます。</b></div>
+      <input id="mergeQ" placeholder="統合先の人を名前で検索" oninput="renderMergeResults()">
+      <div class="mres" id="mergeResults"></div>
+    </div>
     <div class="tpform" id="tpForm">
       <div class="row">
         <input id="tpYear" placeholder="年 (例: 2026)" style="max-width:110px">
@@ -436,6 +450,59 @@ function renderTagBox(){
     renderTagBox();
   };
   box.appendChild(nb);
+}
+function toggleMerge(){
+  const b=document.getElementById('mergeBox');
+  b.classList.toggle('open');
+  if(b.classList.contains('open')){document.getElementById('mergeQ').value='';renderMergeResults();document.getElementById('mergeQ').focus();}
+}
+function renderMergeResults(){
+  const q=(document.getElementById('mergeQ').value||'').trim().toLowerCase();
+  const box=document.getElementById('mergeResults'); box.innerHTML='';
+  if(!q){box.innerHTML='<div style="border:0;color:#999;cursor:default">名前を入力してください</div>';return;}
+  const hits=persons.filter(p=>p.id!==current.id && ((p.name||'')+' '+(p.email||'')).toLowerCase().includes(q)).slice(0,8);
+  if(!hits.length){box.innerHTML='<div style="border:0;color:#999;cursor:default">該当なし</div>';return;}
+  hits.forEach(p=>{
+    const n=(tpsByPerson[p.id]||[]).length;
+    const el=document.createElement('div');
+    el.innerHTML=`<b>${p.name}</b> <span style="color:#999">${p.email||'email不明'} ・ ${n}接点</span>`;
+    el.onclick=()=>doMerge(p.id);
+    box.appendChild(el);
+  });
+}
+async function doMerge(targetId){
+  const src=current, dst=persons.find(p=>p.id===targetId);
+  if(!confirm(`「${src.name}」を「${dst.name}」に統合します。\n\n・${src.name} の接点 ${(tpsByPerson[src.id]||[]).length}件 は ${dst.name} に移ります\n・${src.name} のレコードは削除されます\n\n実行しますか？`))return;
+  let {error}=await sb.from('touchpoints').update({person_id:targetId}).eq('person_id',src.id);
+  if(error){alert('接点の移動に失敗: '+error.message);return;}
+  const pick=(a,b)=>(a&&String(a).trim())?a:(b||'');
+  const tags=[...new Set([...(dst.tags||'').split(','),...(src.tags||'').split(',')].map(s=>s.trim()).filter(Boolean))].join(', ');
+  const note=[dst.memory_note, src.memory_note, `[統合] ${src.name} ${src.email||'(email無)'}`].filter(x=>x&&String(x).trim()).join('\n');
+  const merged={
+    email:pick(dst.email,src.email), company:pick(dst.company,src.company),
+    channel:pick(dst.channel,src.channel), referrer:pick(dst.referrer,src.referrer),
+    aware_year:pick(dst.aware_year,src.aware_year), prehistory:pick(dst.prehistory,src.prehistory),
+    san_podcast:pick(dst.san_podcast,src.san_podcast),
+    current_status:pick(dst.current_status,src.current_status),
+    review_status:pick(dst.review_status,src.review_status),
+    personal_consulting:!!(dst.personal_consulting||src.personal_consulting),
+    tags, memory_note:note, updated_by:userEmail, updated_at:new Date().toISOString()
+  };
+  const moved=(tpsByPerson[src.id]||[]);
+  tpsByPerson[targetId]=[...(tpsByPerson[targetId]||[]),...moved].sort((x,y)=>(x.year||'9999').localeCompare(y.year||'9999'));
+  delete tpsByPerson[src.id];
+  const yrs=tpsByPerson[targetId].map(t=>(t.year||'').slice(0,4)).filter(Boolean).sort();
+  if(yrs.length){merged.first_year=yrs[0];merged.last_year=yrs[yrs.length-1];}
+  ({error}=await sb.from('persons').update(merged).eq('id',targetId));
+  if(error){alert('統合先の更新に失敗: '+error.message);return;}
+  ({error}=await sb.from('persons').delete().eq('id',src.id));
+  if(error){alert('元レコードの削除に失敗: '+error.message);return;}
+  Object.assign(dst,merged);
+  persons=persons.filter(p=>p.id!==src.id);
+  document.getElementById('mergeBox').classList.remove('open');
+  buildChips();
+  openDetail(targetId);
+  alert('統合しました');
 }
 function toggleTpForm(){document.getElementById('tpForm').classList.toggle('open');}
 async function addTouchpoint(){
