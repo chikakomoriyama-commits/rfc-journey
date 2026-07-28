@@ -439,6 +439,7 @@ async function saveTp(tpId){
   Object.assign(t,{year:year||null,program,note});
   tpsByPerson[current.id].sort((x,y)=>(x.year||'9999').localeCompare(y.year||'9999'));
   editingTpId=null;
+  await syncYears(current.id);
   renderJourney(current.id);
 }
 async function deleteTp(tpId){
@@ -447,6 +448,7 @@ async function deleteTp(tpId){
   if(error){alert(error.message);return;}
   tpsByPerson[current.id]=(tpsByPerson[current.id]||[]).filter(x=>x.id!==tpId);
   editingTpId=null;
+  await syncYears(current.id);
   renderJourney(current.id);
 }
 function allTags(){
@@ -478,6 +480,14 @@ function renderTagBox(){
     renderTagBox();
   };
   box.appendChild(nb);
+}
+async function syncYears(pid){
+  const p=persons.find(x=>x.id===pid); if(!p)return;
+  const ys=(tpsByPerson[pid]||[]).map(t=>(t.year||'').slice(0,4)).filter(Boolean).sort();
+  const upd={ first_year: ys.length?ys[0]:'', last_year: ys.length?ys[ys.length-1]:'' };
+  if(p.first_year===upd.first_year && p.last_year===upd.last_year)return;
+  const {error}=await sb.from('persons').update(upd).eq('id',pid);
+  if(!error)Object.assign(p,upd);
 }
 function toggleMerge(){
   const b=document.getElementById('mergeBox');
@@ -542,6 +552,7 @@ async function addTouchpoint(){
   (tpsByPerson[current.id]=tpsByPerson[current.id]||[]).push(data[0]);
   tpsByPerson[current.id].sort((x,y)=>(x.year||'9999').localeCompare(y.year||'9999'));
   document.getElementById('tpYear').value='';document.getElementById('tpProgram').value='';document.getElementById('tpNote').value='';
+  await syncYears(current.id);
   renderJourney(current.id);
 }
 function closeDetail(){document.getElementById('detail').classList.remove('open');render();}
