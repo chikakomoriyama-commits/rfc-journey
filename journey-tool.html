@@ -74,6 +74,15 @@
   .tagchip.sel{background:var(--accent);color:#fff;border-color:var(--accent);}
   .tagchip.newbtn{border-style:dashed;color:var(--gray);}
   .listtag{font-size:10.5px;padding:2px 8px;border-radius:999px;background:#efe6d8;color:#6b5a3e;margin-left:4px;}
+  .jedit{font-size:11px;color:var(--gray);cursor:pointer;margin-left:8px;}
+  .jedit:hover{color:var(--accent);}
+  .jrow{display:flex;align-items:baseline;flex-wrap:wrap;}
+  .jeditform{background:#f7f5f0;border:1px solid var(--line);border-radius:8px;padding:10px;margin:4px 0 6px;display:flex;gap:6px;flex-wrap:wrap;}
+  .jeditform input{padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-size:12.5px;background:#fff;}
+  .jeditform button{border:0;border-radius:999px;padding:7px 16px;font-size:12px;cursor:pointer;font-weight:600;}
+  .jeditform .savebtn{background:var(--accent);color:#fff;}
+  .jeditform .delbtn{background:#eee;color:#a33;}
+  .jeditform .cancelbtn{background:#eee9e0;}
   /* analytics */
   .insight{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:14px;}
   .insight h3{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;}
@@ -323,14 +332,50 @@ function openDetail(id){
   document.getElementById('saveMsg').textContent='';
   document.getElementById('detail').classList.add('open');
 }
+let editingTpId=null;
 function renderJourney(id){
   const j=document.getElementById('dJourney'); j.innerHTML='';
   (tpsByPerson[id]||[]).forEach(t=>{
     const d=document.createElement('div');d.className='jitem';
-    const manual=t.source==='手入力'?`<span class="manual">✎手入力${t.added_by?'('+t.added_by.split('@')[0]+')':''}</span>`:'';
-    d.innerHTML=`<span class="yr">${t.year||'—'}</span>${t.program}${t.tag?`<span class="tg">[${t.tag}]</span>`:''}${manual}${t.note?` <span style="color:var(--gray);font-size:12px">— ${t.note}</span>`:''}`;
+    if(editingTpId===t.id){
+      d.innerHTML=`<div class="jeditform">
+        <input id="etYear" value="${t.year||''}" placeholder="年" style="width:70px">
+        <input id="etProgram" value="${(t.program||'').replace(/"/g,'&quot;')}" placeholder="内容" style="flex:1;min-width:150px">
+        <input id="etNote" value="${(t.note||'').replace(/"/g,'&quot;')}" placeholder="メモ" style="flex:1;min-width:120px">
+        <button class="savebtn" onclick="saveTp(${t.id})">保存</button>
+        <button class="delbtn" onclick="deleteTp(${t.id})">削除</button>
+        <button class="cancelbtn" onclick="editingTpId=null;renderJourney(${id})">取消</button>
+      </div>`;
+    }else{
+      const manual=t.source==='手入力'?`<span class="manual">✎手入力${t.added_by?'('+t.added_by.split('@')[0]+')':''}</span>`:'';
+      const edited=t.note&&t.note.includes('[修正済')?`<span class="manual">✎修正済</span>`:'';
+      d.innerHTML=`<div class="jrow"><span class="yr">${t.year||'—'}</span><span>${t.program}</span>${t.tag?`<span class="tg">[${t.tag}]</span>`:''}${manual}${edited}${t.note?` <span style="color:var(--gray);font-size:12px">— ${t.note}</span>`:''}<span class="jedit" onclick="editingTpId=${t.id};renderJourney(${id})">編集</span></div>`;
+    }
     j.appendChild(d);
   });
+}
+async function saveTp(tpId){
+  const year=document.getElementById('etYear').value.trim();
+  const program=document.getElementById('etProgram').value.trim();
+  let note=document.getElementById('etNote').value.trim();
+  if(!program){alert('内容は空にできません');return;}
+  const t=(tpsByPerson[current.id]||[]).find(x=>x.id===tpId);
+  const isOrig=t&&t.source!=='手入力';
+  if(isOrig&&!note.includes('[修正済'))note=(note?note+' ':'')+`[修正済:${userEmail.split('@')[0]}]`;
+  const {error}=await sb.from('touchpoints').update({year:year||null,program,note}).eq('id',tpId);
+  if(error){alert(error.message);return;}
+  Object.assign(t,{year:year||null,program,note});
+  tpsByPerson[current.id].sort((x,y)=>(x.year||'9999').localeCompare(y.year||'9999'));
+  editingTpId=null;
+  renderJourney(current.id);
+}
+async function deleteTp(tpId){
+  if(!confirm('この接点を削除しますか？（元に戻せません）'))return;
+  const {error}=await sb.from('touchpoints').delete().eq('id',tpId);
+  if(error){alert(error.message);return;}
+  tpsByPerson[current.id]=(tpsByPerson[current.id]||[]).filter(x=>x.id!==tpId);
+  editingTpId=null;
+  renderJourney(current.id);
 }
 function allTags(){
   const s=new Set();
