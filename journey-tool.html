@@ -136,6 +136,8 @@
         <button onclick="addTouchpoint()">追加</button>
       </div>
     </div>
+    <label>所属・関連法人（きっかけになった企業/NPOなど）</label>
+    <input id="dCompany" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;" placeholder="例: NPO法人◯◯、株式会社△△">
     <div class="drow">
       <div>
         <label>現在の状態</label>
@@ -235,7 +237,7 @@ function render(){
     if(sf && (p.review_status||'未着手')!==sf)return false;
     if(triggerFilter && !TRIGGERS[triggerFilter](p))return false;
     if(q){ const tp=(tpsByPerson[p.id]||[]).map(t=>t.program).join(' ');
-      const hay=(p.name+' '+(p.email||'')+' '+tp+' '+(p.prehistory||'')+' '+(p.memory_note||'')).toLowerCase();
+      const hay=(p.name+' '+(p.email||'')+' '+tp+' '+(p.prehistory||'')+' '+(p.memory_note||'')+' '+(p.company||'')).toLowerCase();
       if(!hay.includes(q))return false; }
     return true;
   });
@@ -254,7 +256,8 @@ function render(){
     const rsClass=rs==='完了'?'done':(rs==='途中'?'wip':'none');
     const stBadge=p.current_status?`<span class="badge done">${p.current_status}</span>`:'';
     const upd=p.updated_by?`<span class="upd">${fmtDate(p.updated_at)} ${p.updated_by.split('@')[0]}</span>`:'';
-    div.innerHTML=`<div><div class="nm">${p.name}</div><div class="sub">${p.first_year||'?'}〜${p.last_year||'?'} ・ ${tp.length}接点 ・ ${p.email||'email不明'}</div></div>
+    const compSub=p.company?` ・ ${p.company}`:'';
+    div.innerHTML=`<div><div class="nm">${p.name}</div><div class="sub">${p.first_year||'?'}〜${p.last_year||'?'} ・ ${tp.length}接点${compSub} ・ ${p.email||'email不明'}</div></div>
       <div class="rightcol"><span class="badge ${rsClass}">${rs}</span>${stBadge}${upd}</div>`;
     div.onclick=()=>openDetail(p.id);
     list.appendChild(div);
@@ -265,7 +268,8 @@ function openDetail(id){
   current=persons.find(p=>p.id===id);
   document.getElementById('dName').textContent=current.name;
   const upd=current.updated_by?` ・ 最終更新 ${fmtDate(current.updated_at)}（${current.updated_by.split('@')[0]}）`:'';
-  document.getElementById('dMeta').textContent=`${current.email||'email不明'} ・ ${current.route_type}${upd}`;
+  const comp=current.company?` ・ ${current.company}`:'';
+  document.getElementById('dMeta').textContent=`${current.email||'email不明'}${comp} ・ ${current.route_type}${upd}`;
   let facts='';
   if(current.kikkake)facts+=`<div class="fact"><b>知ったきっかけ:</b> ${current.kikkake}</div>`;
   if(current.purpose)facts+=`<div class="fact"><b>初回の参加目的:</b> ${current.purpose}</div>`;
@@ -275,6 +279,7 @@ function openDetail(id){
   document.getElementById('dFacts').innerHTML=facts;
   renderJourney(id);
   document.getElementById('tpForm').classList.remove('open');
+  document.getElementById('dCompany').value=current.company||'';
   document.getElementById('dStatus').value=current.current_status||'';
   document.getElementById('dReview').value=current.review_status||'未着手';
   document.getElementById('dNote').value=current.memory_note||'';
@@ -308,6 +313,7 @@ async function save(){
   const upd={current_status:document.getElementById('dStatus').value,
     review_status:document.getElementById('dReview').value,
     memory_note:document.getElementById('dNote').value,
+    company:document.getElementById('dCompany').value,
     updated_by:userEmail, updated_at:new Date().toISOString()};
   const {error}=await sb.from('persons').update(upd).eq('id',current.id);
   if(error){document.getElementById('saveMsg').textContent='エラー: '+error.message;return;}
