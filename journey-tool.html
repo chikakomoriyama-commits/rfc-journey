@@ -68,6 +68,12 @@
   #saveMsg{font-size:12px;color:var(--green);text-align:center;margin-top:8px;height:16px;}
   .nav{display:flex;justify-content:space-between;margin-top:10px;}
   .nav button{background:none;border:0;color:var(--accent);font-size:13px;cursor:pointer;padding:6px;font-weight:600;}
+  /* tags */
+  .tagbox{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
+  .tagchip{padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;cursor:pointer;}
+  .tagchip.sel{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .tagchip.newbtn{border-style:dashed;color:var(--gray);}
+  .listtag{font-size:10.5px;padding:2px 8px;border-radius:999px;background:#efe6d8;color:#6b5a3e;margin-left:4px;}
   /* analytics */
   .insight{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:14px;}
   .insight h3{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;}
@@ -113,6 +119,7 @@
     </div>
     <div class="toolbar" id="chips"></div>
     <div class="toolbar" id="triggerChips"></div>
+    <div class="toolbar" id="tagFilterChips"></div>
     <div class="plist" id="list"></div>
   </div>
 
@@ -171,6 +178,8 @@
         </select>
       </div>
     </div>
+    <label>タグ（イベント招待・興味・意図の印。タップで付け外し）</label>
+    <div class="tagbox" id="dTags"></div>
     <label>メモ（きっかけ・関係・その後のこと、Dannaに聞くことなど）</label>
     <textarea id="dNote"></textarea>
     <div class="actions">
@@ -190,7 +199,7 @@ const SUPABASE_URL = "https://googdxrbzgwdwzimehio.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_st8Ylnt61zDYX0ogwz7mpw_3x1t-Tzk";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let persons=[], tpsByPerson={}, current=null, filtered=[];
-let routeFilter="", triggerFilter="", userEmail="";
+let routeFilter="", triggerFilter="", tagFilter="", userEmail="";
 
 async function signIn(){ await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href}}); }
 sb.auth.onAuthStateChange(async (_e,session)=>{ if(session){ userEmail=session.user.email||''; document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; await load(); } });
@@ -234,6 +243,15 @@ function buildChips(){
   const mk2=(label)=>{const c=document.createElement('div');c.className='chip trigger'+(triggerFilter===label?' on':'');c.textContent='🔎 '+label;
     c.onclick=()=>{triggerFilter=(triggerFilter===label?'':label);buildChips();render();};el2.appendChild(c);};
   Object.keys(TRIGGERS).forEach(mk2);
+  const el3=document.getElementById('tagFilterChips'); el3.innerHTML='';
+  const tags=allTags();
+  if(tags.length){
+    tags.forEach(t=>{
+      const n=persons.filter(p=>(p.tags||'').split(',').map(x=>x.trim()).includes(t)).length;
+      const c=document.createElement('div');c.className='chip'+(tagFilter===t?' on':'');c.textContent=`🏷 ${t} (${n})`;
+      c.onclick=()=>{tagFilter=(tagFilter===t?'':t);buildChips();render();};el3.appendChild(c);
+    });
+  }
 }
 
 function fmtDate(iso){ if(!iso)return ''; const d=new Date(iso); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; }
@@ -248,8 +266,9 @@ function render(){
     if(yf && p.first_year!==yf)return false;
     if(sf && (p.review_status||'未着手')!==sf)return false;
     if(triggerFilter && !TRIGGERS[triggerFilter](p))return false;
+    if(tagFilter && !(p.tags||'').split(',').map(x=>x.trim()).includes(tagFilter))return false;
     if(q){ const tp=(tpsByPerson[p.id]||[]).map(t=>t.program).join(' ');
-      const hay=(p.name+' '+(p.email||'')+' '+tp+' '+(p.prehistory||'')+' '+(p.memory_note||'')+' '+(p.company||'')+' '+(p.referrer||'')+' '+(p.channel||'')).toLowerCase();
+      const hay=(p.name+' '+(p.email||'')+' '+tp+' '+(p.prehistory||'')+' '+(p.memory_note||'')+' '+(p.company||'')+' '+(p.referrer||'')+' '+(p.channel||'')+' '+(p.tags||'')).toLowerCase();
       if(!hay.includes(q))return false; }
     return true;
   });
@@ -269,8 +288,9 @@ function render(){
     const stBadge=p.current_status?`<span class="badge done">${p.current_status}</span>`:'';
     const upd=p.updated_by?`<span class="upd">${fmtDate(p.updated_at)} ${p.updated_by.split('@')[0]}</span>`:'';
     const compSub=p.company?` ・ ${p.company}`:'';
+    const tagSub=(p.tags||'').split(',').map(x=>x.trim()).filter(Boolean).map(t=>`<span class="listtag">${t}</span>`).join('');
     div.innerHTML=`<div><div class="nm">${p.name}</div><div class="sub">${p.first_year||'?'}〜${p.last_year||'?'} ・ ${tp.length}接点${compSub} ・ ${p.email||'email不明'}</div></div>
-      <div class="rightcol"><span class="badge ${rsClass}">${rs}</span>${stBadge}${upd}</div>`;
+      <div class="rightcol"><span class="badge ${rsClass}">${rs}</span>${stBadge}<div>${tagSub}</div>${upd}</div>`;
     div.onclick=()=>openDetail(p.id);
     list.appendChild(div);
   });
@@ -291,6 +311,8 @@ function openDetail(id){
   document.getElementById('dFacts').innerHTML=facts;
   renderJourney(id);
   document.getElementById('tpForm').classList.remove('open');
+  currentTags=(current.tags||'').split(',').map(t=>t.trim()).filter(Boolean);
+  renderTagBox();
   document.getElementById('dChannel').value=current.channel||'';
   document.getElementById('dAware').value=current.aware_year||'';
   document.getElementById('dReferrer').value=current.referrer||'';
@@ -309,6 +331,36 @@ function renderJourney(id){
     d.innerHTML=`<span class="yr">${t.year||'—'}</span>${t.program}${t.tag?`<span class="tg">[${t.tag}]</span>`:''}${manual}${t.note?` <span style="color:var(--gray);font-size:12px">— ${t.note}</span>`:''}`;
     j.appendChild(d);
   });
+}
+function allTags(){
+  const s=new Set();
+  persons.forEach(p=>(p.tags||'').split(',').forEach(t=>{t=t.trim();if(t)s.add(t);}));
+  return [...s].sort();
+}
+let currentTags=[];
+function renderTagBox(){
+  const box=document.getElementById('dTags'); box.innerHTML='';
+  const tags=allTags();
+  tags.forEach(t=>{
+    const c=document.createElement('div');
+    c.className='tagchip'+(currentTags.includes(t)?' sel':'');
+    c.textContent=t;
+    c.onclick=()=>{ if(currentTags.includes(t))currentTags=currentTags.filter(x=>x!==t); else currentTags.push(t); renderTagBox(); };
+    box.appendChild(c);
+  });
+  const nb=document.createElement('div');
+  nb.className='tagchip newbtn'; nb.textContent='＋ 新規タグを作成';
+  nb.onclick=()=>{
+    const name=prompt('新しいタグ名（イベント系は年を付けると便利: 例 忘年会2026）');
+    if(!name)return;
+    const nm=name.trim();
+    if(!nm)return;
+    const similar=allTags().find(t=>t.replace(/[0-9]/g,'')===nm.replace(/[0-9]/g,'')&&t!==nm);
+    if(similar && !confirm(`似たタグ「${similar}」があります。それでも「${nm}」を新規作成しますか？\n（キャンセルして既存タグを使うことをおすすめします）`))return;
+    if(!currentTags.includes(nm))currentTags.push(nm);
+    renderTagBox();
+  };
+  box.appendChild(nb);
 }
 function toggleTpForm(){document.getElementById('tpForm').classList.toggle('open');}
 async function addTouchpoint(){
@@ -332,6 +384,7 @@ async function save(){
     channel:document.getElementById('dChannel').value,
     aware_year:document.getElementById('dAware').value,
     referrer:document.getElementById('dReferrer').value,
+    tags:currentTags.join(', '),
     updated_by:userEmail, updated_at:new Date().toISOString()};
   const {error}=await sb.from('persons').update(upd).eq('id',current.id);
   if(error){document.getElementById('saveMsg').textContent='エラー: '+error.message;return;}
