@@ -8,54 +8,74 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
-  :root{--navy:#2b2b2b;--bg:#f7f5f0;--card:#fff;--line:#e6e1d8;--accent:#7c2530;--green:#3d7a53;--amber:#a8631f;--gray:#8a8378;}
+  :root{--ink:#2b2b2b;--bg:#f7f5f0;--card:#fff;--line:#e6e1d8;--accent:#7c2530;--green:#3d7a53;--amber:#a8631f;--gray:#8a8378;}
   *{box-sizing:border-box;margin:0;padding:0;font-family:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif;}
   body{background:var(--bg);color:#232936;}
-  header{background:#1a1a1a;color:#fff;padding:14px 22px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;border-bottom:3px solid var(--accent);}
-  header h1{font-size:16px;font-weight:600;}
-  #progress{font-size:12px;opacity:.85;}
-  #login{max-width:360px;margin:80px auto;background:var(--card);padding:32px;border-radius:12px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.06);}
-  #login button{background:var(--accent);color:#fff;border:0;padding:13px 30px;border-radius:999px;font-size:14px;cursor:pointer;font-weight:600;letter-spacing:.02em;}
-  main{max-width:960px;margin:0 auto;padding:16px;}
-  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  header{background:#1a1a1a;color:#fff;padding:13px 22px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;border-bottom:3px solid var(--accent);}
+  header h1{font-size:15px;font-weight:700;letter-spacing:.03em;}
+  #progress{font-size:12px;opacity:.9;text-align:right;line-height:1.5;}
+  #login{max-width:360px;margin:80px auto;background:var(--card);padding:32px;border-radius:14px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.06);}
+  #login button{background:var(--accent);color:#fff;border:0;padding:13px 30px;border-radius:999px;font-size:14px;cursor:pointer;font-weight:600;}
+  main{max-width:1000px;margin:0 auto;padding:16px;}
+  .tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:2px solid var(--line);}
+  .tab{padding:10px 18px;font-size:13.5px;font-weight:600;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;}
+  .tab.on{color:var(--accent);border-bottom-color:var(--accent);}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
   .toolbar input,.toolbar select{padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;}
-  .toolbar input{flex:1;min-width:180px;}
-  .chip{padding:8px 14px;border-radius:20px;border:1px solid var(--line);background:#fff;font-size:12.5px;cursor:pointer;white-space:nowrap;}
-  .chip{border-radius:999px;}
+  .toolbar input{flex:1;min-width:170px;}
+  .chip{padding:8px 15px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12.5px;cursor:pointer;white-space:nowrap;}
   .chip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .chip.trigger{border-style:dashed;border-color:var(--amber);color:var(--amber);}
+  .chip.trigger.on{background:var(--amber);color:#fff;border-color:var(--amber);border-style:solid;}
   .plist{display:flex;flex-direction:column;gap:8px;}
   .prow{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;}
   .prow:hover{border-color:var(--accent);}
-  .prow .nm{font-weight:600;font-size:14.5px;}
-  .prow .sub{font-size:12px;color:var(--gray);margin-top:2px;}
+  .prow .nm{font-weight:700;font-size:14.5px;}
+  .prow .sub{font-size:11.5px;color:var(--gray);margin-top:2px;}
+  .rightcol{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
   .badge{font-size:11px;padding:3px 10px;border-radius:999px;background:#f3e6e8;color:var(--accent);white-space:nowrap;}
   .badge.done{background:#e7f3ec;color:var(--green);}
-  .badge.pre{background:#fdf3dd;color:var(--amber);}
-  /* detail card */
-  #detail{position:fixed;inset:0;background:rgba(20,26,40,.45);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 12px;z-index:20;}
+  .badge.wip{background:#fdf3dd;color:var(--amber);}
+  .badge.none{background:#eee9e0;color:var(--gray);}
+  .upd{font-size:10px;color:var(--gray);}
+  #detail{position:fixed;inset:0;background:rgba(26,20,16,.5);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:28px 12px;z-index:20;}
   #detail.open{display:flex;}
-  .dcard{background:#fff;border-radius:14px;max-width:640px;width:100%;padding:26px;}
-  .dcard h2{font-size:20px;}
+  .dcard{background:#fff;border-radius:16px;max-width:660px;width:100%;padding:26px;}
+  .dcard h2{font-size:20px;font-weight:900;}
   .dmeta{font-size:12.5px;color:var(--gray);margin:4px 0 14px;}
-  .journey{border-left:3px solid var(--accent);margin:14px 0 18px;padding-left:16px;display:flex;flex-direction:column;gap:8px;}
+  .journey{border-left:3px solid var(--accent);margin:14px 0 8px;padding-left:16px;display:flex;flex-direction:column;gap:8px;}
   .jitem{font-size:13.5px;}
   .jitem .yr{font-weight:700;color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums;}
   .jitem .tg{font-size:11px;color:var(--amber);margin-left:6px;}
+  .jitem .manual{font-size:10.5px;color:var(--green);margin-left:6px;}
+  .addtp{font-size:12.5px;color:var(--accent);cursor:pointer;margin:2px 0 14px 19px;font-weight:600;}
+  .tpform{background:#f7f5f0;border:1px solid var(--line);border-radius:10px;padding:12px;margin:0 0 14px;display:none;}
+  .tpform.open{display:block;}
+  .tpform .row{display:flex;gap:8px;margin-bottom:8px;}
+  .tpform input,.tpform select{padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:13px;flex:1;background:#fff;}
+  .tpform button{background:var(--accent);color:#fff;border:0;border-radius:999px;padding:8px 20px;font-size:12.5px;cursor:pointer;font-weight:600;}
   .fact{font-size:13px;background:#f7f5f0;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;}
   .fact b{color:var(--accent);}
-  label{font-size:12.5px;font-weight:600;color:var(--navy);display:block;margin:14px 0 6px;}
-  select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;}
-  textarea{min-height:90px;resize:vertical;}
+  label{font-size:12.5px;font-weight:700;color:var(--ink);display:block;margin:14px 0 6px;}
+  select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;}
+  textarea{min-height:88px;resize:vertical;}
   .drow{display:flex;gap:10px;}
   .drow>div{flex:1;}
   .actions{display:flex;gap:10px;margin-top:18px;}
-  .actions button{flex:1;padding:13px;border-radius:999px;border:0;font-size:14px;cursor:pointer;font-weight:600;letter-spacing:.02em;transition:opacity .15s;}
-  .actions button:hover{opacity:.85;}
+  .actions button{flex:1;padding:13px;border-radius:999px;border:0;font-size:14px;cursor:pointer;font-weight:600;}
   #saveBtn{background:var(--accent);color:#fff;}
-  #closeBtn{background:#eee9e0;color:#2b2b2b;}
+  #closeBtn{background:#eee9e0;color:var(--ink);}
   #saveMsg{font-size:12px;color:var(--green);text-align:center;margin-top:8px;height:16px;}
   .nav{display:flex;justify-content:space-between;margin-top:10px;}
-  .nav button{background:none;border:0;color:var(--accent);font-size:13px;cursor:pointer;padding:6px;}
+  .nav button{background:none;border:0;color:var(--accent);font-size:13px;cursor:pointer;padding:6px;font-weight:600;}
+  /* analytics */
+  .insight{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:14px;}
+  .insight h3{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;}
+  table{border-collapse:collapse;width:100%;font-size:13px;}
+  th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);}
+  th{font-size:11.5px;color:var(--gray);font-weight:700;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .bar{height:14px;background:var(--accent);border-radius:3px;display:inline-block;vertical-align:middle;min-width:2px;}
 </style>
 </head>
 <body>
@@ -70,17 +90,33 @@
 </div>
 
 <main id="app" style="display:none">
-  <div class="toolbar">
-    <input id="q" placeholder="名前・メール・プログラムで検索" oninput="render()">
-    <select id="yearF" onchange="render()"><option value="">初回年: 全て</option></select>
-    <select id="statusF" onchange="render()">
-      <option value="">記入状況: 全て</option>
-      <option value="empty">未記入のみ</option>
-      <option value="filled">記入済みのみ</option>
-    </select>
+  <div class="tabs">
+    <div class="tab on" data-tab="list" onclick="switchTab('list')">名簿</div>
+    <div class="tab" data-tab="analytics" onclick="switchTab('analytics')">分析</div>
   </div>
-  <div class="toolbar" id="chips"></div>
-  <div class="plist" id="list"></div>
+
+  <div id="listView">
+    <div class="toolbar">
+      <input id="q" placeholder="名前・メール・プログラムで検索" oninput="render()">
+      <select id="yearF" onchange="render()"><option value="">初回年: 全て</option></select>
+      <select id="statusF" onchange="render()">
+        <option value="">記入状況: 全て</option>
+        <option value="未着手">未着手のみ</option>
+        <option value="途中">途中のみ</option>
+        <option value="完了">完了のみ</option>
+      </select>
+      <select id="sortF" onchange="render()">
+        <option value="recent">並び: 最終接触が新しい順</option>
+        <option value="old">並び: 初回接触が古い順</option>
+        <option value="count">並び: 受講回数が多い順</option>
+      </select>
+    </div>
+    <div class="toolbar" id="chips"></div>
+    <div class="toolbar" id="triggerChips"></div>
+    <div class="plist" id="list"></div>
+  </div>
+
+  <div id="analyticsView" style="display:none"></div>
 </main>
 
 <div id="detail" onclick="if(event.target===this)closeDetail()">
@@ -89,6 +125,17 @@
     <div class="dmeta" id="dMeta"></div>
     <div id="dFacts"></div>
     <div class="journey" id="dJourney"></div>
+    <div class="addtp" onclick="toggleTpForm()">＋ 接点を追加（パーソナルコンサル・面談・その他）</div>
+    <div class="tpform" id="tpForm">
+      <div class="row">
+        <input id="tpYear" placeholder="年 (例: 2026)" style="max-width:110px">
+        <input id="tpProgram" placeholder="接点の内容 (例: パーソナルコンサルティング)">
+      </div>
+      <div class="row">
+        <input id="tpNote" placeholder="メモ (任意)">
+        <button onclick="addTouchpoint()">追加</button>
+      </div>
+    </div>
     <div class="drow">
       <div>
         <label>現在の状態</label>
@@ -102,13 +149,15 @@
         </select>
       </div>
       <div>
-        <label>記憶の確度</label>
-        <select id="dConf">
-          <option value="">—</option><option>高</option><option>中</option><option>低</option>
+        <label>記入ステータス</label>
+        <select id="dReview">
+          <option>未着手</option>
+          <option>途中</option>
+          <option>完了</option>
         </select>
       </div>
     </div>
-    <label>メモ（きっかけ・関係・その後のこと、何でも）</label>
+    <label>メモ（きっかけ・関係・その後のこと、Dannaに聞くことなど）</label>
     <textarea id="dNote"></textarea>
     <div class="actions">
       <button id="closeBtn" onclick="closeDetail()">閉じる</button>
@@ -123,16 +172,14 @@
 </div>
 
 <script>
-// ==== 設定: Supabaseプロジェクト作成後にここを書き換え ====
 const SUPABASE_URL = "https://googdxrbzgwdwzimehio.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_st8Ylnt61zDYX0ogwz7mpw_3x1t-Tzk";
-// =========================================================
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let persons=[], tpsByPerson={}, current=null, filtered=[];
-let routeFilter="";
+let routeFilter="", triggerFilter="", userEmail="";
 
 async function signIn(){ await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href}}); }
-sb.auth.onAuthStateChange(async (_e,session)=>{ if(session){ document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; await load(); } });
+sb.auth.onAuthStateChange(async (_e,session)=>{ if(session){ userEmail=session.user.email||''; document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; await load(); } });
 
 async function load(){
   let all=[], from=0;
@@ -145,47 +192,80 @@ async function load(){
   Object.values(tpsByPerson).forEach(a=>a.sort((x,y)=>(x.year||'9999').localeCompare(y.year||'9999')));
   const years=[...new Set(persons.map(p=>p.first_year).filter(Boolean))].sort();
   const yf=document.getElementById('yearF');
+  yf.innerHTML='<option value="">初回年: 全て</option>';
   years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent='初回 '+y;yf.appendChild(o);});
   buildChips(); render();
 }
+
+// trigger definitions
+const TRIGGERS = {
+  'FSTで止まっている': p => {
+    const tp=(tpsByPerson[p.id]||[]).map(t=>t.program).join(' ');
+    return /FST|創り出す思考/.test(tp) && !/SCCP|FBS/.test(tp);
+  },
+  '倶楽部/前史のみ': p => p.route_type==='前史のみ' || ((tpsByPerson[p.id]||[]).length===0 && p.prehistory),
+  '1回きりで終了': p => (tpsByPerson[p.id]||[]).length===1,
+  '4年以上継続': p => p.first_year && p.last_year && (parseInt(p.last_year)-parseInt(p.first_year))>=4,
+  '2年以上動きなし': p => p.last_year && parseInt(p.last_year) <= 2024,
+};
+
 function buildChips(){
   const types=[...new Set(persons.map(p=>p.route_type).filter(Boolean))];
   const el=document.getElementById('chips'); el.innerHTML='';
-  const all=document.createElement('div');all.className='chip'+(routeFilter===''?' on':'');all.textContent='全経路';
-  all.onclick=()=>{routeFilter='';buildChips();render();};el.appendChild(all);
-  types.forEach(t=>{const c=document.createElement('div');c.className='chip'+(routeFilter===t?' on':'');c.textContent=t;
-    c.onclick=()=>{routeFilter=t;buildChips();render();};el.appendChild(c);});
+  const mk=(label,val)=>{const c=document.createElement('div');c.className='chip'+(routeFilter===val?' on':'');c.textContent=label;
+    c.onclick=()=>{routeFilter=val;buildChips();render();};el.appendChild(c);};
+  mk('全経路','');
+  types.forEach(t=>mk(t,t));
+  const el2=document.getElementById('triggerChips'); el2.innerHTML='';
+  const mk2=(label)=>{const c=document.createElement('div');c.className='chip trigger'+(triggerFilter===label?' on':'');c.textContent='🔎 '+label;
+    c.onclick=()=>{triggerFilter=(triggerFilter===label?'':label);buildChips();render();};el2.appendChild(c);};
+  Object.keys(TRIGGERS).forEach(mk2);
 }
+
+function fmtDate(iso){ if(!iso)return ''; const d=new Date(iso); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; }
+
 function render(){
   const q=document.getElementById('q').value.toLowerCase();
   const yf=document.getElementById('yearF').value;
   const sf=document.getElementById('statusF').value;
+  const sort=document.getElementById('sortF').value;
   filtered=persons.filter(p=>{
     if(routeFilter && p.route_type!==routeFilter)return false;
     if(yf && p.first_year!==yf)return false;
-    if(sf==='empty' && p.current_status)return false;
-    if(sf==='filled' && !p.current_status)return false;
+    if(sf && (p.review_status||'未着手')!==sf)return false;
+    if(triggerFilter && !TRIGGERS[triggerFilter](p))return false;
     if(q){ const tp=(tpsByPerson[p.id]||[]).map(t=>t.program).join(' ');
-      const hay=(p.name+' '+(p.email||'')+' '+tp+' '+(p.prehistory||'')).toLowerCase();
+      const hay=(p.name+' '+(p.email||'')+' '+tp+' '+(p.prehistory||'')+' '+(p.memory_note||'')).toLowerCase();
       if(!hay.includes(q))return false; }
     return true;
   });
-  const done=persons.filter(p=>p.current_status).length;
-  document.getElementById('progress').textContent=`記入 ${done} / ${persons.length}人`;
+  if(sort==='recent') filtered.sort((a,b)=>(b.last_year||'').localeCompare(a.last_year||'')|| (b.first_year||'').localeCompare(a.first_year||''));
+  else if(sort==='old') filtered.sort((a,b)=>(a.first_year||'9999').localeCompare(b.first_year||'9999'));
+  else filtered.sort((a,b)=>(tpsByPerson[b.id]||[]).length-(tpsByPerson[a.id]||[]).length);
+
+  const done=persons.filter(p=>p.review_status==='完了').length;
+  const wip=persons.filter(p=>p.review_status==='途中').length;
+  document.getElementById('progress').innerHTML=`完了 ${done} ・ 途中 ${wip} / ${persons.length}人<br><span style="font-size:10px;opacity:.7">表示中: ${filtered.length}人</span>`;
   const list=document.getElementById('list'); list.innerHTML='';
   filtered.slice(0,300).forEach(p=>{
     const div=document.createElement('div');div.className='prow';
     const tp=(tpsByPerson[p.id]||[]);
-    const badge=p.current_status?`<span class="badge done">${p.current_status}</span>`:(p.route_type==='前史のみ'?`<span class="badge pre">前史のみ</span>`:`<span class="badge">${tp.length}接点</span>`);
-    div.innerHTML=`<div><div class="nm">${p.name}</div><div class="sub">${p.first_year||'?'}年〜${p.last_year||'?'} ・ ${p.email||'(email不明)'}</div></div>${badge}`;
+    const rs=p.review_status||'未着手';
+    const rsClass=rs==='完了'?'done':(rs==='途中'?'wip':'none');
+    const stBadge=p.current_status?`<span class="badge done">${p.current_status}</span>`:'';
+    const upd=p.updated_by?`<span class="upd">${fmtDate(p.updated_at)} ${p.updated_by.split('@')[0]}</span>`:'';
+    div.innerHTML=`<div><div class="nm">${p.name}</div><div class="sub">${p.first_year||'?'}〜${p.last_year||'?'} ・ ${tp.length}接点 ・ ${p.email||'email不明'}</div></div>
+      <div class="rightcol"><span class="badge ${rsClass}">${rs}</span>${stBadge}${upd}</div>`;
     div.onclick=()=>openDetail(p.id);
     list.appendChild(div);
   });
 }
+
 function openDetail(id){
   current=persons.find(p=>p.id===id);
   document.getElementById('dName').textContent=current.name;
-  document.getElementById('dMeta').textContent=`${current.email||'email不明'} ・ 経路: ${current.route_type} ・ 初回${current.first_year||'?'}年`;
+  const upd=current.updated_by?` ・ 最終更新 ${fmtDate(current.updated_at)}（${current.updated_by.split('@')[0]}）`:'';
+  document.getElementById('dMeta').textContent=`${current.email||'email不明'} ・ ${current.route_type}${upd}`;
   let facts='';
   if(current.kikkake)facts+=`<div class="fact"><b>知ったきっかけ:</b> ${current.kikkake}</div>`;
   if(current.purpose)facts+=`<div class="fact"><b>初回の参加目的:</b> ${current.purpose}</div>`;
@@ -193,23 +273,42 @@ function openDetail(id){
   if(current.san_podcast)facts+=`<div class="fact"><b>SAN/Podcast:</b> ${current.san_podcast}</div>`;
   if(current.personal_consulting)facts+=`<div class="fact"><b>パーソナルコンサルティング</b> 実施あり</div>`;
   document.getElementById('dFacts').innerHTML=facts;
-  const j=document.getElementById('dJourney'); j.innerHTML='';
-  (tpsByPerson[id]||[]).forEach(t=>{
-    const d=document.createElement('div');d.className='jitem';
-    d.innerHTML=`<span class="yr">${t.year||'—'}</span>${t.program}${t.tag?`<span class="tg">[${t.tag}]</span>`:''}`;
-    j.appendChild(d);
-  });
+  renderJourney(id);
+  document.getElementById('tpForm').classList.remove('open');
   document.getElementById('dStatus').value=current.current_status||'';
-  document.getElementById('dConf').value=current.memory_confidence||'';
+  document.getElementById('dReview').value=current.review_status||'未着手';
   document.getElementById('dNote').value=current.memory_note||'';
   document.getElementById('saveMsg').textContent='';
   document.getElementById('detail').classList.add('open');
 }
+function renderJourney(id){
+  const j=document.getElementById('dJourney'); j.innerHTML='';
+  (tpsByPerson[id]||[]).forEach(t=>{
+    const d=document.createElement('div');d.className='jitem';
+    const manual=t.source==='手入力'?`<span class="manual">✎手入力${t.added_by?'('+t.added_by.split('@')[0]+')':''}</span>`:'';
+    d.innerHTML=`<span class="yr">${t.year||'—'}</span>${t.program}${t.tag?`<span class="tg">[${t.tag}]</span>`:''}${manual}${t.note?` <span style="color:var(--gray);font-size:12px">— ${t.note}</span>`:''}`;
+    j.appendChild(d);
+  });
+}
+function toggleTpForm(){document.getElementById('tpForm').classList.toggle('open');}
+async function addTouchpoint(){
+  const year=document.getElementById('tpYear').value.trim();
+  const program=document.getElementById('tpProgram').value.trim();
+  const note=document.getElementById('tpNote').value.trim();
+  if(!program){alert('接点の内容を入力してください');return;}
+  const {data,error}=await sb.from('touchpoints').insert({person_id:current.id,year:year||null,program,tag:'',fee:'',source:'手入力',note,added_by:userEmail}).select();
+  if(error){alert(error.message);return;}
+  (tpsByPerson[current.id]=tpsByPerson[current.id]||[]).push(data[0]);
+  tpsByPerson[current.id].sort((x,y)=>(x.year||'9999').localeCompare(y.year||'9999'));
+  document.getElementById('tpYear').value='';document.getElementById('tpProgram').value='';document.getElementById('tpNote').value='';
+  renderJourney(current.id);
+}
 function closeDetail(){document.getElementById('detail').classList.remove('open');render();}
 async function save(){
   const upd={current_status:document.getElementById('dStatus').value,
-    memory_confidence:document.getElementById('dConf').value,
-    memory_note:document.getElementById('dNote').value, updated_at:new Date().toISOString()};
+    review_status:document.getElementById('dReview').value,
+    memory_note:document.getElementById('dNote').value,
+    updated_by:userEmail, updated_at:new Date().toISOString()};
   const {error}=await sb.from('persons').update(upd).eq('id',current.id);
   if(error){document.getElementById('saveMsg').textContent='エラー: '+error.message;return;}
   Object.assign(current,upd);
@@ -220,6 +319,64 @@ async function step(dir){
   const idx=filtered.findIndex(p=>p.id===current.id);
   const next=filtered[idx+dir];
   if(next)openDetail(next.id);
+}
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.tab===t));
+  document.getElementById('listView').style.display=t==='list'?'block':'none';
+  document.getElementById('analyticsView').style.display=t==='analytics'?'block':'none';
+  if(t==='analytics')renderAnalytics();
+}
+function renderAnalytics(){
+  const v=document.getElementById('analyticsView');
+  const byYear={};
+  persons.forEach(p=>{ if(!p.first_year)return; (byYear[p.first_year]=byYear[p.first_year]||[]).push(p); });
+  const years=Object.keys(byYear).sort();
+  const maxN=Math.max(...years.map(y=>byYear[y].length));
+  let cohortRows='';
+  years.forEach(y=>{
+    const g=byYear[y];
+    const multi=g.filter(p=>(tpsByPerson[p.id]||[]).length>=3).length;
+    const recent=g.filter(p=>p.last_year&&parseInt(p.last_year)>=2025).length;
+    cohortRows+=`<tr><td>${y}</td><td class="num">${g.length}</td>
+      <td><span class="bar" style="width:${Math.round(g.length/maxN*160)}px"></span></td>
+      <td class="num">${multi} (${Math.round(multi/g.length*100)}%)</td>
+      <td class="num">${recent} (${Math.round(recent/g.length*100)}%)</td></tr>`;
+  });
+  // FST→next conversion
+  let fstOnly=0,fstToSccp=0,fstToFbs=0,fstTotal=0;
+  persons.forEach(p=>{
+    const tp=(tpsByPerson[p.id]||[]).map(t=>t.program).join(' ');
+    if(/FST|創り出す思考/.test(tp)){ fstTotal++;
+      if(/SCCP/.test(tp))fstToSccp++;
+      else if(/FBS/.test(tp))fstToFbs++;
+      else fstOnly++;
+    }
+  });
+  // status distribution
+  const st={};
+  persons.forEach(p=>{const s=p.current_status||'(未記入)';st[s]=(st[s]||0)+1;});
+  let stRows='';
+  Object.entries(st).sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{
+    stRows+=`<tr><td>${k}</td><td class="num">${n}</td></tr>`;
+  });
+  // triggers count
+  let trRows='';
+  Object.entries(TRIGGERS).forEach(([name,fn])=>{
+    trRows+=`<tr><td>${name}</td><td class="num">${persons.filter(fn).length}人</td></tr>`;
+  });
+  v.innerHTML=`
+  <div class="insight"><h3>初回接触コホート（年別の新規と定着）</h3>
+    <table><tr><th>初回年</th><th>新規</th><th></th><th>3接点以上</th><th>2025年以降も接点</th></tr>${cohortRows}</table></div>
+  <div class="insight"><h3>FSTからの分岐（FST受講 ${fstTotal}人）</h3>
+    <table>
+      <tr><td>→ SCCPへ進んだ</td><td class="num">${fstToSccp}人 (${Math.round(fstToSccp/fstTotal*100)}%)</td></tr>
+      <tr><td>→ FBSへ進んだ</td><td class="num">${fstToFbs}人 (${Math.round(fstToFbs/fstTotal*100)}%)</td></tr>
+      <tr><td>→ FSTで止まっている</td><td class="num">${fstOnly}人 (${Math.round(fstOnly/fstTotal*100)}%)</td></tr>
+    </table></div>
+  <div class="insight"><h3>トリガー該当者数（名簿タブのオレンジのチップで一覧できます）</h3>
+    <table>${trRows}</table></div>
+  <div class="insight"><h3>現在の状態（記入済みの分布）</h3>
+    <table>${stRows}</table></div>`;
 }
 </script>
 </body>
