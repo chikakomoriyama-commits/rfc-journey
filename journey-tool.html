@@ -154,6 +154,16 @@
     </div>
     <div class="drow">
       <div>
+        <label>氏名（表記の修正）</label>
+        <input id="dNameEdit" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;">
+      </div>
+      <div>
+        <label>メールアドレス</label>
+        <input id="dEmailEdit" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;" placeholder="(不明の場合は空欄)">
+      </div>
+    </div>
+    <div class="drow">
+      <div>
         <label>認知チャネル（どこで知ったか）</label>
         <select id="dChannel"><option value="">（未記入）</option><option>書籍</option><option>紹介</option><option>Podcast</option><option>読書会</option><option>創造プロセス倶楽部</option><option>ロバート来日WS</option><option>STARクラブ/道場</option><option>セミナー・登壇</option><option>Web検索</option><option>SNS</option><option>その他</option></select>
       </div>
@@ -327,6 +337,8 @@ function openDetail(id){
   document.getElementById('dFacts').innerHTML=facts;
   renderJourney(id);
   document.getElementById('tpForm').classList.remove('open');
+  document.getElementById('dNameEdit').value=current.name||'';
+  document.getElementById('dEmailEdit').value=current.email||'';
   currentTags=(current.tags||'').split(',').map(t=>t.trim()).filter(Boolean);
   renderTagBox();
   document.getElementById('dChannel').value=current.channel||'';
@@ -437,10 +449,13 @@ async function save(){
     aware_year:document.getElementById('dAware').value,
     referrer:document.getElementById('dReferrer').value,
     tags:currentTags.join(', '),
+    name:document.getElementById('dNameEdit').value.trim()||current.name,
+    email:document.getElementById('dEmailEdit').value.trim(),
     updated_by:userEmail, updated_at:new Date().toISOString()};
   const {error}=await sb.from('persons').update(upd).eq('id',current.id);
   if(error){document.getElementById('saveMsg').textContent='エラー: '+error.message;return;}
   Object.assign(current,upd);
+  document.getElementById('dName').textContent=current.name;
   document.getElementById('saveMsg').textContent='保存しました ✓';
 }
 async function step(dir){
