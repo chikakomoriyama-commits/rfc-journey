@@ -193,9 +193,16 @@
     <h2 id="cName"></h2>
     <div class="dmeta" id="cMeta"></div>
     <div style="display:flex;gap:16px;margin-bottom:10px;">
-      <div class="mergebtn" onclick="renameCorp()">✎ 法人名・責任者を編集</div>
       <div class="mergebtn" onclick="deleteCorp()" style="color:#a33;">🗑 このレコードを削除</div>
     </div>
+    <div class="drow">
+      <div><label>法人名</label>
+        <input id="cNameEdit" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;"></div>
+      <div><label>窓口担当・代表者（先方）</label>
+        <input id="cContact" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;" placeholder="例: 清水隆志さん"></div>
+    </div>
+    <label>RFC側の責任者</label>
+    <input id="cOwner" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;">
     <div id="cFacts"></div>
     <label>活動記録（新しいことがあったら足していく）</label>
     <div id="cEvents"></div>
@@ -337,7 +344,12 @@ let initiatives=[], corps=[], currentCorp=null, corpEvents={};
 async function signIn(){ await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href}}); }
 sb.auth.onAuthStateChange(async (_e,session)=>{ if(session){ userEmail=session.user.email||''; document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; await load(); } });
 
+let loading=false;
 async function load(){
+  if(loading)return; loading=true;
+  try{ await loadInner(); } finally { loading=false; }
+}
+async function loadInner(){
   let all=[], from=0;
   while(true){ const {data,error}=await sb.from('persons').select('*').range(from,from+999); if(error){alert(error.message);return;} all=all.concat(data); if(data.length<1000)break; from+=1000; }
   persons=all;
@@ -353,6 +365,7 @@ async function load(){
   const cp=await sb.from('corporate_clients').select('*');
   corps=(cp.data||[]);
   const csf=document.getElementById('cStatusF');
+  csf.innerHTML='<option value="">ステータス: 全て</option>';
   [...new Set(corps.map(c=>c.status).filter(Boolean))].sort().forEach(s=>{
     const o=document.createElement('option');o.value=s;o.textContent=s;csf.appendChild(o);});
   const ce=await sb.from('corp_events').select('*');
@@ -716,14 +729,14 @@ function renderCorp(){
   const list=document.getElementById('corpList'); list.innerHTML='';
   corps.filter(c=>{
     if(sf && c.status!==sf)return false;
-    if(q){const hay=((c.client_name||'')+' '+(c.owner||'')+' '+(c.notes||'')+' '+(c.next_action||'')+' '+(c.current_summary||'')+' '+(c.process_detail||'')).toLowerCase();
+    if(q){const hay=((c.client_name||'')+' '+(c.owner||'')+' '+(c.contact_person||'')+' '+(c.notes||'')+' '+(c.next_action||'')+' '+(c.current_summary||'')+' '+(c.process_detail||'')).toLowerCase();
       if(!hay.includes(q))return false;}
     return true;
   }).sort((a,b)=>(b.contact_start||'').localeCompare(a.contact_start||'')).forEach(c=>{
     const lp=linkedPersons(c.client_name);
     const div=document.createElement('div');div.className='crow';
     div.innerHTML=`<div><div class="nm">${c.client_name}</div>
-      <div class="sub">${c.attribute||''} ・ 開始 ${c.contact_start||'?'}${lp.length?` ・ 個人受講 ${lp.length}名`:''}${(corpEvents[c.id]||[]).length?` ・ 活動${(corpEvents[c.id]||[]).length}件`:''}</div>
+      <div class="sub">${c.contact_person?`窓口 ${c.contact_person} ・ `:''}${c.attribute||''} ・ 開始 ${c.contact_start||'?'}${lp.length?` ・ 個人受講 ${lp.length}名`:''}${(corpEvents[c.id]||[]).length?` ・ 活動${(corpEvents[c.id]||[]).length}件`:''}</div>
       ${c.current_summary?`<div class="sub" style="color:var(--ink);margin-top:3px">${c.current_summary}</div>`:''}</div>
       <span class="cstat ${c.status||''}">${c.status||'未記入'}</span>`;
     div.onclick=()=>openCorp(c.id);
@@ -734,7 +747,7 @@ function openCorp(id){
   currentCorp=corps.find(c=>c.id===id);
   const c=currentCorp;
   document.getElementById('cName').textContent=c.client_name;
-  document.getElementById('cMeta').textContent=`責任者: ${c.owner||'—'} ・ コンタクト開始 ${c.contact_start||'—'}`;
+  document.getElementById('cMeta').textContent=`窓口: ${c.contact_person||'—'} ・ RFC責任者: ${c.owner||'—'} ・ 開始 ${c.contact_start||'—'}`;
   let f='';
   if(c.contract_date)f+=`<div class="fact"><b>契約日:</b> ${c.contract_date}</div>`;
   if(c.planning_date)f+=`<div class="fact"><b>戦略プランニング実施:</b> ${c.planning_date}</div>`;
@@ -754,6 +767,9 @@ function openCorp(id){
   document.getElementById('cStatus').value=c.status||'';
   document.getElementById('cAttr').value=c.attribute||'';
   document.getElementById('cNext').value=c.next_action||'';
+  document.getElementById('cNameEdit').value=c.client_name||'';
+  document.getElementById('cContact').value=c.contact_person||'';
+  document.getElementById('cOwner').value=c.owner||'';
   document.getElementById('cSummary').value=c.current_summary||'';
   document.getElementById('cNote').value=c.memory_note||'';
   renderCorpEvents();
@@ -790,6 +806,11 @@ async function linkPerson(pid){
   const {error}=await sb.from('persons').update(upd).eq('id',pid);
   if(error){alert(error.message);return;}
   Object.assign(p,upd);
+  if(!currentCorp.contact_person && confirm(`${p.name} をこの法人の窓口担当として登録しますか？`)){
+    const u2={contact_person:p.name, updated_at:new Date().toISOString()};
+    await sb.from('corporate_clients').update(u2).eq('id',currentCorp.id);
+    Object.assign(currentCorp,u2);
+  }
   document.getElementById('linkBox').classList.remove('open');
   openCorp(currentCorp.id);
 }
@@ -816,18 +837,6 @@ async function addCorp(){
   corpEvents[data[0].id]=[];
   renderCorp();
   openCorp(data[0].id);
-}
-async function renameCorp(){
-  const name=prompt('法人名', currentCorp.client_name||'');
-  if(name===null)return;
-  const owner=prompt('責任者', currentCorp.owner||'');
-  if(owner===null)return;
-  const upd={client_name:name.trim()||currentCorp.client_name, owner:owner.trim(), updated_at:new Date().toISOString()};
-  const {error}=await sb.from('corporate_clients').update(upd).eq('id',currentCorp.id);
-  if(error){alert(error.message);return;}
-  Object.assign(currentCorp,upd);
-  document.getElementById('cName').textContent=currentCorp.client_name;
-  document.getElementById('cMeta').textContent=`責任者: ${currentCorp.owner||'—'} ・ コンタクト開始 ${currentCorp.contact_start||'—'}`;
 }
 async function deleteCorp(){
   if(!confirm(`「${currentCorp.client_name}」を削除します。活動記録も一緒に消えます。よろしいですか？`))return;
@@ -887,7 +896,10 @@ async function deleteCorpEvent(id){
 }
 function closeCorp(){document.getElementById('cdetail').classList.remove('open');renderCorp();}
 async function saveCorp(){
-  const upd={status:document.getElementById('cStatus').value,
+  const upd={client_name:document.getElementById('cNameEdit').value.trim()||currentCorp.client_name,
+    contact_person:document.getElementById('cContact').value.trim(),
+    owner:document.getElementById('cOwner').value.trim(),
+    status:document.getElementById('cStatus').value,
     attribute:document.getElementById('cAttr').value,
     next_action:document.getElementById('cNext').value,
     current_summary:document.getElementById('cSummary').value,
@@ -896,6 +908,8 @@ async function saveCorp(){
   const {error}=await sb.from('corporate_clients').update(upd).eq('id',currentCorp.id);
   if(error){document.getElementById('cSaveMsg').textContent='エラー: '+error.message;return;}
   Object.assign(currentCorp,upd);
+  document.getElementById('cName').textContent=currentCorp.client_name;
+  document.getElementById('cMeta').textContent=`窓口: ${currentCorp.contact_person||'—'} ・ RFC責任者: ${currentCorp.owner||'—'} ・ 開始 ${currentCorp.contact_start||'—'}`;
   document.getElementById('cSaveMsg').textContent='保存しました ✓';
 }
 async function addInitiative(){
