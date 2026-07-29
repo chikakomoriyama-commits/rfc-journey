@@ -193,6 +193,7 @@
     <h2 id="cName"></h2>
     <div class="dmeta" id="cMeta"></div>
     <div style="display:flex;gap:16px;margin-bottom:10px;">
+      <div class="mergebtn" onclick="corpToPerson()">→ 個人に移す（法人としての関わりが無い場合）</div>
       <div class="mergebtn" onclick="deleteCorp()" style="color:#a33;">🗑 このレコードを削除</div>
     </div>
     <div class="drow">
@@ -251,6 +252,7 @@
     <div class="addtp" onclick="toggleTpForm()">＋ 接点を追加（パーソナルコンサル・面談・その他）</div>
     <div style="display:flex;gap:16px;margin:2px 0 6px 19px;">
       <div class="mergebtn" onclick="toggleMerge()">⇄ この人を別の人に統合する（同一人物・旧姓など）</div>
+      <div class="mergebtn" onclick="personToCorp()">🏢 法人レコードを作る（取引が始まった）</div>
       <div class="mergebtn" onclick="deletePerson()" style="color:#a33;">🗑 このレコードを削除</div>
     </div>
     <div class="mergebox" id="mergeBox">
@@ -587,6 +589,39 @@ function renderTagBox(){
   };
   box.appendChild(nb);
 }
+async function personToCorp(){
+  const p=current;
+  const norm=s=>(s||'').replace(/株式会社|有限会社|一般社団法人|NPO法人|学校法人|\s|　/g,'');
+  const existing=corps.find(c=>{
+    const a=norm(c.client_name), b=norm(p.company);
+    return a&&b&&(a.includes(b)||b.includes(a));
+  });
+  if(existing){
+    if(confirm(`「${existing.client_name}」の法人レコードが既にあります。そちらを開きますか？`)){
+      closeDetail(); switchTab('corp'); openCorp(existing.id);
+    }
+    return;
+  }
+  const name=prompt('法人名を入力してください', p.company||'');
+  if(!name||!name.trim())return;
+  const now=new Date();
+  const ym=`${now.getFullYear()}年${now.getMonth()+1}月`;
+  const {data,error}=await sb.from('corporate_clients').insert({
+    client_name:name.trim(), contact_person:p.name, status:'進行中', attribute:'既得意',
+    contact_start:ym, current_summary:`個人受講者からの法人化（${p.name}）`,
+    updated_at:now.toISOString()
+  }).select();
+  if(error){alert('作成できませんでした: '+error.message);return;}
+  corps.push(data[0]); corpEvents[data[0].id]=[];
+  // 個人側の所属も揃える
+  if(norm(p.company)!==norm(name)){
+    const upd={company:name.trim(), updated_by:userEmail, updated_at:now.toISOString()};
+    await sb.from('persons').update(upd).eq('id',p.id);
+    Object.assign(p,upd);
+  }
+  closeDetail(); switchTab('corp'); openCorp(data[0].id);
+  alert('法人レコードを作成し、この人を窓口担当として紐づけました。個人のレコードはそのまま残っています。');
+}
 async function deletePerson(){
   const n=(tpsByPerson[current.id]||[]).length;
   const msg=n>0
@@ -837,6 +872,67 @@ async function addCorp(){
   corpEvents[data[0].id]=[];
   renderCorp();
   openCorp(data[0].id);
+}
+async function corpToPerson(){
+  const c=currentCorp;
+  const guess=(c.contact_person||c.client_name||'').replace(/[（(].*?[）)]/g,'').replace(/さん$/,'').trim();
+  const name=prompt('個人として登録する氏名', guess);
+  if(!name||!name.trim())return;
+  const nm=name.trim();
+  // 既存の個人を探す
+  const norm=s=>(s||'').replace(/[（(].*?[）)]/g,'').replace(/\s|　/g,'');
+  const hit=persons.find(p=>norm(p.name)===norm(nm));
+  let targetId=null;
+  if(hit){
+    if(confirm(`既に「${hit.name}」が個人DBにあります。\nこの法人の記録をその人にまとめますか？\n\n「キャンセル」を選ぶと新しく別の個人として登録します。`)) targetId=hit.id;
+  }
+  // 記録をまとめる
+  const noteParts=[];
+  if(c.client_name && norm(c.client_name)!==norm(nm)) noteParts.push(`[法人DBから移動] 元の登録名: ${c.client_name}`);
+  if(c.current_summary) noteParts.push(c.current_summary);
+  if(c.next_action) noteParts.push('次のアクション: '+c.next_action);
+  if(c.notes) noteParts.push('--- 旧Notes ---\n'+c.notes);
+  if(c.process_detail) noteParts.push('--- プロセス・詳細 ---\n'+c.process_detail);
+  const note=noteParts.join('\n\n');
+
+  if(!targetId){
+    const {data,error}=await sb.from('persons').insert({
+      name:nm, company:'', channel:'', current_status:'',
+      memory_note:note, updated_by:userEmail, updated_at:new Date().toISOString()
+    }).select();
+    if(error){alert('個人の作成に失敗: '+error.message);return;}
+    targetId=data[0].id; persons.push(data[0]); tpsByPerson[targetId]=[];
+  }else{
+    const p=persons.find(x=>x.id===targetId);
+    const merged=[p.memory_note,note].filter(x=>x&&String(x).trim()).join('\n\n');
+    const {error}=await sb.from('persons').update({memory_note:merged,updated_by:userEmail,updated_at:new Date().toISOString()}).eq('id',targetId);
+    if(error){alert(error.message);return;}
+    p.memory_note=merged;
+  }
+  // 活動記録 → 接点
+  const evs=corpEvents[c.id]||[];
+  const initial=[];
+  if(c.contact_start){
+    const m=String(c.contact_start).match(/(20\d\d)[年\/\-]?\s?(\d{1,2})?/);
+    if(m) initial.push({year: m[2]? `${m[1]}-${String(m[2]).padStart(2,'0')}` : m[1],
+                        title:`コンタクト開始（元:法人DB ${c.client_name}）`});
+  }
+  const toInsert=[...initial.map(x=>({person_id:targetId,year:x.year,program:x.title,source:'法人DBから移動',note:''})),
+                  ...evs.map(e=>({person_id:targetId,year:e.ym,program:e.title,source:'法人DBから移動',note:e.note||''}))];
+  if(toInsert.length){
+    const {data,error}=await sb.from('touchpoints').insert(toInsert).select();
+    if(error){alert('接点の移動に失敗: '+error.message);return;}
+    tpsByPerson[targetId]=[...(tpsByPerson[targetId]||[]),...data];
+  }
+  // 法人レコード削除
+  const {error:delErr}=await sb.from('corporate_clients').delete().eq('id',c.id);
+  if(delErr){alert('法人レコードの削除に失敗: '+delErr.message);return;}
+  corps=corps.filter(x=>x.id!==c.id); delete corpEvents[c.id];
+  await syncYears(targetId);
+  closeCorp();
+  switchTab('list');
+  openDetail(targetId);
+  alert('個人に移しました');
 }
 async function deleteCorp(){
   if(!confirm(`「${currentCorp.client_name}」を削除します。活動記録も一緒に消えます。よろしいですか？`))return;
