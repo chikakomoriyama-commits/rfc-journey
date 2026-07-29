@@ -341,7 +341,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_st8Ylnt61zDYX0ogwz7mpw_3x1t-Tzk";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let persons=[], tpsByPerson={}, current=null, filtered=[];
 let routeFilter="", triggerFilter="", tagFilter="", userEmail="", jpFirst=true, showInternal=false;
-let initiatives=[], corps=[], currentCorp=null, corpEvents={};
+let initiatives=[], corps=[], currentCorp=null, corpEvents={}, curTab='list';
 
 async function signIn(){ await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href}}); }
 sb.auth.onAuthStateChange(async (_e,session)=>{ if(session){ userEmail=session.user.email||''; document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; await load(); } });
@@ -457,9 +457,7 @@ function render(){
   else filtered.sort((a,b)=>(tpsByPerson[b.id]||[]).length-(tpsByPerson[a.id]||[]).length);
   if(jpFirst) filtered.sort((a,b)=>(isJP(a.name)?0:1)-(isJP(b.name)?0:1));
 
-  const done=persons.filter(p=>p.review_status==='完了').length;
-  const wip=persons.filter(p=>p.review_status==='途中').length;
-  document.getElementById('progress').innerHTML=`完了 ${done} ・ 途中 ${wip} / ${persons.length}人<br><span style="font-size:10px;opacity:.7">表示中: ${filtered.length}人</span>`;
+  updateHeader(filtered.length);
   const list=document.getElementById('list'); list.innerHTML='';
   filtered.slice(0,300).forEach(p=>{
     const div=document.createElement('div');div.className='prow';
@@ -758,16 +756,32 @@ function linkedPersons(clientName){
     return c.includes(key)||key.includes(c);
   });
 }
+function updateHeader(shown){
+  const el=document.getElementById('progress');
+  if(curTab==='corp'){
+    const act=corps.filter(c=>c.status==='進行中').length;
+    el.innerHTML=`法人 進行中 ${act} / ${corps.length}社<br><span style="font-size:10px;opacity:.7">表示中: ${shown}社</span>`;
+  }else if(curTab==='analytics'){
+    const pa=persons.filter(p=>!p.is_internal).length;
+    el.innerHTML=`分析対象 個人 ${pa}人 ・ 法人 ${corps.length}社`;
+  }else{
+    const done=persons.filter(p=>p.review_status==='完了').length;
+    const wip=persons.filter(p=>p.review_status==='途中').length;
+    el.innerHTML=`完了 ${done} ・ 途中 ${wip} / ${persons.length}人<br><span style="font-size:10px;opacity:.7">表示中: ${shown}人</span>`;
+  }
+}
 function renderCorp(){
   const q=(document.getElementById('cq').value||'').toLowerCase();
   const sf=document.getElementById('cStatusF').value;
   const list=document.getElementById('corpList'); list.innerHTML='';
-  corps.filter(c=>{
+  const corpFiltered=corps.filter(c=>{
     if(sf && c.status!==sf)return false;
     if(q){const hay=((c.client_name||'')+' '+(c.owner||'')+' '+(c.contact_person||'')+' '+(c.notes||'')+' '+(c.next_action||'')+' '+(c.current_summary||'')+' '+(c.process_detail||'')).toLowerCase();
       if(!hay.includes(q))return false;}
     return true;
-  }).sort((a,b)=>(b.contact_start||'').localeCompare(a.contact_start||'')).forEach(c=>{
+  }).sort((a,b)=>(b.contact_start||'').localeCompare(a.contact_start||''));
+  updateHeader(corpFiltered.length);
+  corpFiltered.forEach(c=>{
     const lp=linkedPersons(c.client_name);
     const div=document.createElement('div');div.className='crow';
     div.innerHTML=`<div><div class="nm">${c.client_name}</div>
@@ -1027,12 +1041,13 @@ async function deleteInitiative(id){
   renderAnalytics();
 }
 function switchTab(t){
+  curTab=t;
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.tab===t));
   document.getElementById('listView').style.display=t==='list'?'block':'none';
   document.getElementById('corpView').style.display=t==='corp'?'block':'none';
   document.getElementById('analyticsView').style.display=t==='analytics'?'block':'none';
   if(t==='corp')renderCorp();
-  if(t==='analytics')renderAnalytics();
+  if(t==='analytics'){renderAnalytics();updateHeader(0);}
 }
 function renderAnalytics(){
   const v=document.getElementById('analyticsView');
