@@ -181,6 +181,7 @@
     <div class="toolbar">
       <input id="cq" placeholder="法人名・担当者・メモで検索" oninput="renderCorp()">
       <select id="cStatusF" onchange="renderCorp()"><option value="">ステータス: 全て</option></select>
+      <button onclick="addCorp()" style="padding:9px 18px;border:0;border-radius:999px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">＋ 新しい法人を追加</button>
     </div>
     <div class="plist" id="corpList"></div>
   </div>
@@ -191,6 +192,10 @@
   <div class="dcard">
     <h2 id="cName"></h2>
     <div class="dmeta" id="cMeta"></div>
+    <div style="display:flex;gap:16px;margin-bottom:10px;">
+      <div class="mergebtn" onclick="renameCorp()">✎ 法人名・責任者を編集</div>
+      <div class="mergebtn" onclick="deleteCorp()" style="color:#a33;">🗑 このレコードを削除</div>
+    </div>
     <div id="cFacts"></div>
     <label>活動記録（新しいことがあったら足していく）</label>
     <div id="cEvents"></div>
@@ -201,8 +206,14 @@
     </div>
     <label>現状サマリー（1〜2行。今どうなっているか）</label>
     <input id="cSummary" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;">
-    <label>この法人から個人で学びに来た人</label>
+    <label>この法人に関係する個人（受講者・担当者）</label>
     <div id="cLinked"></div>
+    <div class="mergebtn" onclick="toggleLinkBox()" style="margin:6px 0;">＋ 個人を紐づける（過去の受講者・担当者を探す）</div>
+    <div class="mergebox" id="linkBox">
+      <div style="font-size:12px;color:var(--gray);margin-bottom:6px;">選んだ人の「所属・関連法人」にこの法人名が入り、双方向で行き来できるようになります。</div>
+      <input id="linkQ" placeholder="名前・メールで検索" oninput="renderLinkResults()">
+      <div class="mres" id="linkResults"></div>
+    </div>
     <div id="cHistory"></div>
     <div class="drow">
       <div><label>ステータス</label>
@@ -735,7 +746,8 @@ function openCorp(id){
   lp.forEach(p=>{
     const n=(tpsByPerson[p.id]||[]).length;
     const d=document.createElement('div');d.className='linkperson';
-    d.innerHTML=`<b>${p.name}</b> <span style="color:#999">${n}接点 ・ ${p.first_year||'?'}〜${p.last_year||'?'}</span>`;
+    d.innerHTML=`<b>${p.name}</b> <span style="color:#999">${n}接点 ・ ${p.first_year||'?'}〜${p.last_year||'?'}</span>`+
+      `<span style="float:right;color:var(--gray);font-size:11px" onclick="event.stopPropagation();unlinkPerson(${p.id})">解除</span>`;
     d.onclick=()=>{closeCorp();switchTab('list');openDetail(p.id);};
     box.appendChild(d);
   });
@@ -748,6 +760,82 @@ function openCorp(id){
   renderHistory(c);
   document.getElementById('cSaveMsg').textContent='';
   document.getElementById('cdetail').classList.add('open');
+}
+function toggleLinkBox(){
+  const b=document.getElementById('linkBox');
+  b.classList.toggle('open');
+  if(b.classList.contains('open')){document.getElementById('linkQ').value='';renderLinkResults();document.getElementById('linkQ').focus();}
+}
+function renderLinkResults(){
+  const q=(document.getElementById('linkQ').value||'').trim().toLowerCase();
+  const box=document.getElementById('linkResults'); box.innerHTML='';
+  if(!q){box.innerHTML='<div style="border:0;color:#999;cursor:default">名前を入力してください</div>';return;}
+  const already=new Set(linkedPersons(currentCorp.client_name).map(p=>p.id));
+  const hits=persons.filter(p=>!already.has(p.id) &&
+    ((p.name||'')+' '+(p.email||'')+' '+(p.company||'')).toLowerCase().includes(q)).slice(0,8);
+  if(!hits.length){box.innerHTML='<div style="border:0;color:#999;cursor:default">該当なし</div>';return;}
+  hits.forEach(p=>{
+    const n=(tpsByPerson[p.id]||[]).length;
+    const el=document.createElement('div');
+    el.innerHTML=`<b>${p.name}</b> <span style="color:#999">${p.email||'email不明'} ・ ${n}接点 ・ ${p.first_year||'?'}〜${p.last_year||'?'}</span>`+
+      (p.company?`<br><span style="color:var(--amber);font-size:11.5px">現在の所属: ${p.company}（上書きされます）</span>`:'');
+    el.onclick=()=>linkPerson(p.id);
+    box.appendChild(el);
+  });
+}
+async function linkPerson(pid){
+  const p=persons.find(x=>x.id===pid);
+  if(p.company && !confirm(`${p.name} の所属を「${p.company}」から「${currentCorp.client_name}」に変更します。よろしいですか？`))return;
+  const upd={company:currentCorp.client_name, updated_by:userEmail, updated_at:new Date().toISOString()};
+  const {error}=await sb.from('persons').update(upd).eq('id',pid);
+  if(error){alert(error.message);return;}
+  Object.assign(p,upd);
+  document.getElementById('linkBox').classList.remove('open');
+  openCorp(currentCorp.id);
+}
+async function unlinkPerson(pid){
+  const p=persons.find(x=>x.id===pid);
+  if(!confirm(`${p.name} とこの法人の紐づけを解除しますか？（所属欄が空になります）`))return;
+  const upd={company:'', updated_by:userEmail, updated_at:new Date().toISOString()};
+  const {error}=await sb.from('persons').update(upd).eq('id',pid);
+  if(error){alert(error.message);return;}
+  Object.assign(p,upd);
+  openCorp(currentCorp.id);
+}
+async function addCorp(){
+  const name=prompt('法人名を入力してください（あとから編集できます）');
+  if(!name||!name.trim())return;
+  const now=new Date();
+  const ym=`${now.getFullYear()}年${now.getMonth()+1}月`;
+  const {data,error}=await sb.from('corporate_clients').insert({
+    client_name:name.trim(), status:'進行中', attribute:'潜在', contact_start:ym,
+    updated_at:now.toISOString()
+  }).select();
+  if(error){alert('追加できませんでした: '+error.message);return;}
+  corps.push(data[0]);
+  corpEvents[data[0].id]=[];
+  renderCorp();
+  openCorp(data[0].id);
+}
+async function renameCorp(){
+  const name=prompt('法人名', currentCorp.client_name||'');
+  if(name===null)return;
+  const owner=prompt('責任者', currentCorp.owner||'');
+  if(owner===null)return;
+  const upd={client_name:name.trim()||currentCorp.client_name, owner:owner.trim(), updated_at:new Date().toISOString()};
+  const {error}=await sb.from('corporate_clients').update(upd).eq('id',currentCorp.id);
+  if(error){alert(error.message);return;}
+  Object.assign(currentCorp,upd);
+  document.getElementById('cName').textContent=currentCorp.client_name;
+  document.getElementById('cMeta').textContent=`責任者: ${currentCorp.owner||'—'} ・ コンタクト開始 ${currentCorp.contact_start||'—'}`;
+}
+async function deleteCorp(){
+  if(!confirm(`「${currentCorp.client_name}」を削除します。活動記録も一緒に消えます。よろしいですか？`))return;
+  const {error}=await sb.from('corporate_clients').delete().eq('id',currentCorp.id);
+  if(error){alert('削除できませんでした: '+error.message);return;}
+  corps=corps.filter(c=>c.id!==currentCorp.id);
+  delete corpEvents[currentCorp.id];
+  closeCorp();
 }
 function paragraphize(s){
   if(!s)return '';
