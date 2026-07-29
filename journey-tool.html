@@ -164,6 +164,16 @@
         <option value="途中">途中のみ</option>
         <option value="完了">完了のみ</option>
       </select>
+      <select id="stageF" onchange="render()">
+        <option value="">到達段階: 全て</option>
+        <option>実践者</option><option>学習者</option><option>触れただけ</option>
+        <option>要再判定</option><option>不明</option>
+      </select>
+      <select id="standingF" onchange="render()">
+        <option value="">現在の関係: 全て</option>
+        <option>継続中</option><option>関係は生きている</option>
+        <option>途切れている</option><option>不明</option>
+      </select>
       <button onclick="addPerson()" style="padding:9px 18px;border:0;border-radius:999px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">＋ 新しい人を追加</button>
       <select id="sortF" onchange="render()">
         <option value="recent">並び: 最終接触が新しい順</option>
@@ -300,16 +310,28 @@
     </label>
     <div class="drow">
       <div>
-        <label>現在の状態</label>
-        <select id="dStatus">
+        <label>到達段階（最も深く行ったところ）</label>
+        <select id="dStage">
           <option value="">（未記入）</option>
-          <option>能動的に創造している</option>
-          <option>学び続けている</option>
-          <option>接点はあるが動きなし</option>
-          <option>離脱</option>
-          <option>不明・思い出せない</option>
+          <option>実践者</option>
+          <option>学習者</option>
+          <option>触れただけ</option>
+          <option>要再判定</option>
+          <option>不明</option>
         </select>
       </div>
+      <div>
+        <label>現在の関係</label>
+        <select id="dStanding">
+          <option value="">（未記入）</option>
+          <option>継続中</option>
+          <option>関係は生きている</option>
+          <option>途切れている</option>
+          <option>不明</option>
+        </select>
+      </div>
+    </div>
+    <div class="drow">
       <div>
         <label>記入ステータス</label>
         <select id="dReview">
@@ -317,6 +339,13 @@
           <option>途中</option>
           <option>完了</option>
         </select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <div style="font-size:11.5px;color:var(--gray);line-height:1.5;padding-top:4px;">
+          <b>到達段階</b>：実践者＝リスクを負って実務・人生に持ち込んだ／学習者＝熱心に学んだが実務には未適用。迷ったら学習者に。<br>
+          <b>現在の関係</b>：関係は生きている＝活動は離れても、いつでも話せる・協力できる。
+        </div>
       </div>
     </div>
     <label>タグ（イベント招待・興味・意図の印。タップで付け外し）</label>
@@ -388,6 +417,9 @@ const TRIGGERS = {
   '1回きりで終了': p => (tpsByPerson[p.id]||[]).length===1,
   '4年以上継続': p => p.first_year && p.last_year && (parseInt(p.last_year)-parseInt(p.first_year))>=4,
   '2年以上動きなし': p => p.last_year && parseInt(p.last_year) <= 2024,
+  '要再判定（実践者か学習者か）': p => p.stage==='要再判定',
+  '実践者×関係は生きている': p => p.stage==='実践者' && p.standing==='関係は生きている',
+  '学習者×継続中（あと一歩）': p => p.stage==='学習者' && p.standing==='継続中',
 };
 
 function buildChips(){
@@ -445,6 +477,10 @@ function render(){
     if(routeFilter && routeOf(p)!==routeFilter)return false;
     if(yf && p.first_year!==yf)return false;
     if(sf && (p.review_status||'未着手')!==sf)return false;
+    const stf=document.getElementById('stageF').value;
+    const sdf=document.getElementById('standingF').value;
+    if(stf && (p.stage||'')!==stf)return false;
+    if(sdf && (p.standing||'')!==sdf)return false;
     if(triggerFilter && !TRIGGERS[triggerFilter](p))return false;
     if(tagFilter && !(p.tags||'').split(',').map(x=>x.trim()).includes(tagFilter))return false;
     if(q){ const tp=(tpsByPerson[p.id]||[]).map(t=>t.program).join(' ');
@@ -464,7 +500,7 @@ function render(){
     const tp=(tpsByPerson[p.id]||[]);
     const rs=p.review_status||'未着手';
     const rsClass=rs==='完了'?'done':(rs==='途中'?'wip':'none');
-    const stBadge=p.current_status?`<span class="badge done">${p.current_status}</span>`:'';
+    const stBadge=(p.stage||p.standing)?`<span class="badge done">${[p.stage,p.standing].filter(Boolean).join(' × ')}</span>`:'';
     const upd=p.updated_by?`<span class="upd">${fmtDate(p.updated_at)} ${p.updated_by.split('@')[0]}</span>`:'';
     const compSub=p.company?` ・ ${p.company}`:'';
     const tagSub=(p.tags||'').split(',').map(x=>x.trim()).filter(Boolean).map(t=>`<span class="listtag">${t}</span>`).join('');
@@ -504,7 +540,8 @@ function openDetail(id){
   document.getElementById('dAware').value=current.aware_year||'';
   document.getElementById('dReferrer').value=current.referrer||'';
   document.getElementById('dCompany').value=current.company||'';
-  document.getElementById('dStatus').value=current.current_status||'';
+  document.getElementById('dStage').value=current.stage||'';
+  document.getElementById('dStanding').value=current.standing||'';
   document.getElementById('dReview').value=current.review_status||'未着手';
   document.getElementById('dNote').value=current.memory_note||'';
   document.getElementById('saveMsg').textContent='';
@@ -673,7 +710,8 @@ async function doMerge(targetId){
     email:pick(dst.email,src.email), company:pick(dst.company,src.company),
     channel:pick(dst.channel,src.channel), referrer:pick(dst.referrer,src.referrer),
     aware_year:pick(dst.aware_year,src.aware_year), prehistory:pick(dst.prehistory,src.prehistory),
-    current_status:pick(dst.current_status,src.current_status),
+    stage:pick(dst.stage,src.stage),
+    standing:pick(dst.standing,src.standing),
     review_status:pick(dst.review_status,src.review_status),
     personal_consulting:!!(dst.personal_consulting||src.personal_consulting),
     tags, memory_note:note, updated_by:userEmail, updated_at:new Date().toISOString()
@@ -710,7 +748,8 @@ async function addTouchpoint(){
 }
 function closeDetail(){document.getElementById('detail').classList.remove('open');render();}
 async function save(){
-  const upd={current_status:document.getElementById('dStatus').value,
+  const upd={stage:document.getElementById('dStage').value,
+    standing:document.getElementById('dStanding').value,
     review_status:document.getElementById('dReview').value,
     memory_note:document.getElementById('dNote').value,
     company:document.getElementById('dCompany').value,
@@ -911,7 +950,7 @@ async function corpToPerson(){
 
   if(!targetId){
     const {data,error}=await sb.from('persons').insert({
-      name:nm, company:'', channel:'', current_status:'',
+      name:nm, company:'', channel:'',
       memory_note:note, updated_by:userEmail, updated_at:new Date().toISOString()
     }).select();
     if(error){alert('個人の作成に失敗: '+error.message);return;}
@@ -1079,7 +1118,7 @@ function renderAnalytics(){
   });
   // status distribution
   const st={};
-  persons_a.forEach(p=>{const s=p.current_status||'(未記入)';st[s]=(st[s]||0)+1;});
+  persons_a.forEach(p=>{const s=`${p.stage||'(未記入)'} × ${p.standing||'(未記入)'}`;st[s]=(st[s]||0)+1;});
   let stRows='';
   Object.entries(st).sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{
     stRows+=`<tr><td>${k}</td><td class="num">${n}</td></tr>`;
@@ -1097,7 +1136,7 @@ function renderAnalytics(){
     ch[c].n++;
     const tp=(tpsByPerson[p.id]||[]);
     if(tp.some(t=>t.fee&&t.fee!=='0'&&t.fee!=='¥0'))ch[c].paid++;
-    if(p.current_status==='能動的に創造している'||p.current_status==='学び続けている')ch[c].active++;
+    if(p.stage==='実践者')ch[c].active++;
     if(p.aware_year&&p.first_year){const lag=parseInt(p.first_year)-parseInt(p.aware_year);
       if(!isNaN(lag)&&lag>=0&&lag<20){ch[c].lagSum+=lag;ch[c].lagN++;}}
   });
@@ -1165,7 +1204,7 @@ function renderAnalytics(){
       <button onclick="addInitiative()">追加</button>
     </div></div>
   <div class="insight"><h3>認知チャネル別の有効性（流入 → 有料転換 → アクティブ）</h3>
-    <table><tr><th>チャネル</th><th>人数</th><th>有料講座へ</th><th>現在アクティブ</th><th>認知→接触の平均年数</th></tr>${chRows}</table>
+    <table><tr><th>チャネル</th><th>人数</th><th>有料講座へ</th><th>実践者</th><th>認知→接触の平均年数</th></tr>${chRows}</table>
     <p style="font-size:11px;color:var(--gray);margin-top:8px">※チャネル・現在の状態の記入が進むほど精度が上がります</p></div>
   <div class="insight"><h3>紹介ハブ（誰が人を連れてきているか）</h3>
     <table>${rfRows||'<tr><td colspan=2 style="color:var(--gray)">紹介者の記入がまだありません</td></tr>'}</table></div>
@@ -1179,7 +1218,7 @@ function renderAnalytics(){
     </table></div>
   <div class="insight"><h3>トリガー該当者数（名簿タブのオレンジのチップで一覧できます）</h3>
     <table>${trRows}</table></div>
-  <div class="insight"><h3>現在の状態（記入済みの分布）</h3>
+  <div class="insight"><h3>到達段階 × 現在の関係（記入済みの分布）</h3>
     <table>${stRows}</table></div>`;
 }
 </script>
