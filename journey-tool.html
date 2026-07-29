@@ -167,12 +167,13 @@
       <select id="stageF" onchange="render()">
         <option value="">到達段階: 全て</option>
         <option>実践者</option><option>学習者</option><option>触れただけ</option>
-        <option>要再判定</option><option>不明</option>
+        <option value="__blank__">未記入のみ</option>
       </select>
       <select id="standingF" onchange="render()">
         <option value="">現在の関係: 全て</option>
         <option>継続中</option><option>関係は生きている</option>
-        <option>途切れている</option><option>不明</option>
+        <option>途切れている</option>
+        <option value="__blank__">未記入のみ</option>
       </select>
       <button onclick="addPerson()" style="padding:9px 18px;border:0;border-radius:999px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">＋ 新しい人を追加</button>
       <select id="sortF" onchange="render()">
@@ -193,7 +194,8 @@
       <select id="cStatusF" onchange="renderCorp()">
         <option value="">現在の関係: 全て</option>
         <option>継続中</option><option>関係は生きている</option>
-        <option>途切れている</option><option>要再判定</option><option>不明</option>
+        <option>途切れている</option>
+        <option value="__blank__">未記入のみ</option>
       </select>
       <button onclick="addCorp()" style="padding:9px 18px;border:0;border-radius:999px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">＋ 新しい法人を追加</button>
     </div>
@@ -239,10 +241,10 @@
     <div id="cHistory"></div>
     <div class="drow">
       <div><label>到達段階（どこまで進んだか）</label>
-        <select id="cStage"><option value="">（未記入）</option><option>十分な成果（その後も発展している）</option><option>実施した</option><option>契約した（実施はこれから）</option><option>提案した</option><option>接触しただけ</option><option>要再判定</option></select>
+        <select id="cStage"><option value="">（未記入）</option><option>十分な成果（その後も発展している）</option><option>実施した</option><option>契約した（実施はこれから）</option><option>提案した</option><option>接触しただけ</option></select>
       </div>
       <div><label>現在の関係（今つながっているか）</label>
-        <select id="cStanding"><option value="">（未記入）</option><option>継続中</option><option>関係は生きている</option><option>途切れている</option><option>要再判定</option><option>不明</option></select>
+        <select id="cStanding"><option value="">（未記入）</option><option>継続中</option><option>関係は生きている</option><option>途切れている</option></select>
       </div>
     </div>
     <div class="drow">
@@ -331,8 +333,6 @@
           <option>実践者</option>
           <option>学習者</option>
           <option>触れただけ</option>
-          <option>要再判定</option>
-          <option>不明</option>
         </select>
       </div>
       <div>
@@ -342,7 +342,6 @@
           <option>継続中</option>
           <option>関係は生きている</option>
           <option>途切れている</option>
-          <option>不明</option>
         </select>
       </div>
     </div>
@@ -428,7 +427,7 @@ const TRIGGERS = {
   '1回きりで終了': p => (tpsByPerson[p.id]||[]).length===1,
   '4年以上継続': p => p.first_year && p.last_year && (parseInt(p.last_year)-parseInt(p.first_year))>=4,
   '2年以上動きなし': p => p.last_year && parseInt(p.last_year) <= 2024,
-  '要再判定（実践者か学習者か）': p => p.stage==='要再判定',
+  '到達段階が未記入': p => !(p.stage||'').trim(),
   '実践者×関係は生きている': p => p.stage==='実践者' && p.standing==='関係は生きている',
   '学習者×継続中（あと一歩）': p => p.stage==='学習者' && p.standing==='継続中',
 };
@@ -490,8 +489,8 @@ function render(){
     if(sf && (p.review_status||'未着手')!==sf)return false;
     const stf=document.getElementById('stageF').value;
     const sdf=document.getElementById('standingF').value;
-    if(stf && (p.stage||'')!==stf)return false;
-    if(sdf && (p.standing||'')!==sdf)return false;
+    if(stf){ if(stf==='__blank__'){ if((p.stage||'')!=='')return false; } else if((p.stage||'')!==stf)return false; }
+    if(sdf){ if(sdf==='__blank__'){ if((p.standing||'')!=='')return false; } else if((p.standing||'')!==sdf)return false; }
     if(triggerFilter && !TRIGGERS[triggerFilter](p))return false;
     if(tagFilter && !(p.tags||'').split(',').map(x=>x.trim()).includes(tagFilter))return false;
     if(q){ const tp=(tpsByPerson[p.id]||[]).map(t=>t.program).join(' ');
@@ -825,7 +824,7 @@ function renderCorp(){
   const sf=document.getElementById('cStatusF').value;
   const list=document.getElementById('corpList'); list.innerHTML='';
   const corpFiltered=corps.filter(c=>{
-    if(sf && (c.standing||'')!==sf)return false;
+    if(sf){ if(sf==='__blank__'){ if((c.standing||'')!=='')return false; } else if((c.standing||'')!==sf)return false; }
     if(q){const hay=((c.client_name||'')+' '+(c.owner||'')+' '+(c.contact_person||'')+' '+(c.notes||'')+' '+(c.next_action||'')+' '+(c.current_summary||'')+' '+(c.process_detail||'')).toLowerCase();
       if(!hay.includes(q))return false;}
     return true;
