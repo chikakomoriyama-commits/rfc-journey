@@ -190,7 +190,11 @@
   <div id="corpView" style="display:none">
     <div class="toolbar">
       <input id="cq" placeholder="法人名・担当者・メモで検索" oninput="renderCorp()">
-      <select id="cStatusF" onchange="renderCorp()"><option value="">ステータス: 全て</option></select>
+      <select id="cStatusF" onchange="renderCorp()">
+        <option value="">現在の関係: 全て</option>
+        <option>継続中</option><option>関係は生きている</option>
+        <option>途切れている</option><option>要再判定</option><option>不明</option>
+      </select>
       <button onclick="addCorp()" style="padding:9px 18px;border:0;border-radius:999px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">＋ 新しい法人を追加</button>
     </div>
     <div class="plist" id="corpList"></div>
@@ -234,11 +238,22 @@
     </div>
     <div id="cHistory"></div>
     <div class="drow">
-      <div><label>ステータス</label>
-        <select id="cStatus"><option value="">（未記入）</option><option>進行中</option><option>保留</option><option>終了</option><option>打ち切り</option><option>単発のみ</option></select>
+      <div><label>到達段階（どこまで進んだか）</label>
+        <select id="cStage"><option value="">（未記入）</option><option>十分な成果（その後も発展している）</option><option>実施した</option><option>契約した（実施はこれから）</option><option>提案した</option><option>接触しただけ</option><option>要再判定</option></select>
       </div>
+      <div><label>現在の関係（今つながっているか）</label>
+        <select id="cStanding"><option value="">（未記入）</option><option>継続中</option><option>関係は生きている</option><option>途切れている</option><option>要再判定</option><option>不明</option></select>
+      </div>
+    </div>
+    <div class="drow">
       <div><label>属性</label>
         <select id="cAttr"><option value="">（未記入）</option><option>既得意</option><option>潜在</option></select>
+      </div>
+      <div><label>&nbsp;</label>
+        <div style="font-size:11.5px;color:var(--gray);line-height:1.5;padding-top:4px;">
+          <b>十分な成果</b>＝実施後も顧客の中で発展が続き、後から「やってよかった」と思えるもの。内容（戦略プランニング／MMOT／研修）は問わない。<br>
+          <b>関係は生きている</b>＝連絡しようと思えばいつでも連絡できる／<b>途切れている</b>＝これから連絡を取るのが難しそう。
+        </div>
       </div>
     </div>
     <label>次のアクション</label>
@@ -344,7 +359,7 @@
         <label>&nbsp;</label>
         <div style="font-size:11.5px;color:var(--gray);line-height:1.5;padding-top:4px;">
           <b>到達段階</b>：実践者＝リスクを負って実務・人生に持ち込んだ／学習者＝熱心に学んだが実務には未適用。迷ったら学習者に。<br>
-          <b>現在の関係</b>：関係は生きている＝活動は離れても、いつでも話せる・協力できる。
+          <b>現在の関係</b>：関係は生きている＝連絡しようと思えばいつでも連絡できる／途切れている＝これから連絡を取るのが難しそう。
         </div>
       </div>
     </div>
@@ -395,10 +410,6 @@ async function loadInner(){
   years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent='初回 '+y;yf.appendChild(o);});
   const cp=await sb.from('corporate_clients').select('*');
   corps=(cp.data||[]);
-  const csf=document.getElementById('cStatusF');
-  csf.innerHTML='<option value="">ステータス: 全て</option>';
-  [...new Set(corps.map(c=>c.status).filter(Boolean))].sort().forEach(s=>{
-    const o=document.createElement('option');o.value=s;o.textContent=s;csf.appendChild(o);});
   const ce=await sb.from('corp_events').select('*');
   corpEvents={};
   (ce.data||[]).forEach(e=>{(corpEvents[e.client_id]=corpEvents[e.client_id]||[]).push(e);});
@@ -526,7 +537,7 @@ function openDetail(id){
     const key=current.company.replace(/株式会社|有限会社|一般社団法人|NPO法人|学校法人|\s/g,'');
     const hit=corps.find(c=>{const n=(c.client_name||'').replace(/株式会社|有限会社|一般社団法人|NPO法人|学校法人|\s/g,'');
       return n&&key&&(n.includes(key)||key.includes(n));});
-    if(hit)facts+=`<div class="fact"><b>法人クライアント:</b> ${hit.client_name}（${hit.status||'状態未記入'}）<span style="color:var(--accent);cursor:pointer;margin-left:8px" onclick="closeDetail();switchTab('corp');openCorp(${hit.id})">→ 法人カードを見る</span></div>`;
+    if(hit)facts+=`<div class="fact"><b>法人クライアント:</b> ${hit.client_name}（${[hit.stage,hit.standing].filter(Boolean).join(' × ')||'状態未記入'}）<span style="color:var(--accent);cursor:pointer;margin-left:8px" onclick="closeDetail();switchTab('corp');openCorp(${hit.id})">→ 法人カードを見る</span></div>`;
   }
   document.getElementById('dFacts').innerHTML=facts;
   renderJourney(id);
@@ -642,7 +653,7 @@ async function personToCorp(){
   const now=new Date();
   const ym=`${now.getFullYear()}年${now.getMonth()+1}月`;
   const {data,error}=await sb.from('corporate_clients').insert({
-    client_name:name.trim(), contact_person:p.name, status:'進行中', attribute:'既得意',
+    client_name:name.trim(), contact_person:p.name, stage:'接触しただけ', standing:'継続中', attribute:'既得意',
     contact_start:ym, current_summary:`個人受講者からの法人化（${p.name}）`,
     updated_at:now.toISOString()
   }).select();
@@ -798,7 +809,7 @@ function linkedPersons(clientName){
 function updateHeader(shown){
   const el=document.getElementById('progress');
   if(curTab==='corp'){
-    const act=corps.filter(c=>c.status==='進行中').length;
+    const act=corps.filter(c=>c.standing==='継続中').length;
     el.innerHTML=`法人 進行中 ${act} / ${corps.length}社<br><span style="font-size:10px;opacity:.7">表示中: ${shown}社</span>`;
   }else if(curTab==='analytics'){
     const pa=persons.filter(p=>!p.is_internal).length;
@@ -814,7 +825,7 @@ function renderCorp(){
   const sf=document.getElementById('cStatusF').value;
   const list=document.getElementById('corpList'); list.innerHTML='';
   const corpFiltered=corps.filter(c=>{
-    if(sf && c.status!==sf)return false;
+    if(sf && (c.standing||'')!==sf)return false;
     if(q){const hay=((c.client_name||'')+' '+(c.owner||'')+' '+(c.contact_person||'')+' '+(c.notes||'')+' '+(c.next_action||'')+' '+(c.current_summary||'')+' '+(c.process_detail||'')).toLowerCase();
       if(!hay.includes(q))return false;}
     return true;
@@ -826,7 +837,7 @@ function renderCorp(){
     div.innerHTML=`<div><div class="nm">${c.client_name}</div>
       <div class="sub">${c.contact_person?`窓口 ${c.contact_person} ・ `:''}${c.attribute||''} ・ 開始 ${c.contact_start||'?'}${lp.length?` ・ 個人受講 ${lp.length}名`:''}${(corpEvents[c.id]||[]).length?` ・ 活動${(corpEvents[c.id]||[]).length}件`:''}</div>
       ${c.current_summary?`<div class="sub" style="color:var(--ink);margin-top:3px">${c.current_summary}</div>`:''}</div>
-      <span class="cstat ${c.status||''}">${c.status||'未記入'}</span>`;
+      <span class="cstat ${c.standing==='継続中'?'進行中':(c.standing==='関係は生きている'?'保留':(c.standing==='途切れている'?'終了':''))}">${[c.stage,c.standing].filter(Boolean).join(' × ')||'未記入'}</span>`;
     div.onclick=()=>openCorp(c.id);
     list.appendChild(div);
   });
@@ -852,7 +863,8 @@ function openCorp(id){
     d.onclick=()=>{closeCorp();switchTab('list');openDetail(p.id);};
     box.appendChild(d);
   });
-  document.getElementById('cStatus').value=c.status||'';
+  document.getElementById('cStage').value=c.stage||'';
+  document.getElementById('cStanding').value=c.standing||'';
   document.getElementById('cAttr').value=c.attribute||'';
   document.getElementById('cNext').value=c.next_action||'';
   document.getElementById('cNameEdit').value=c.client_name||'';
@@ -917,7 +929,7 @@ async function addCorp(){
   const now=new Date();
   const ym=`${now.getFullYear()}年${now.getMonth()+1}月`;
   const {data,error}=await sb.from('corporate_clients').insert({
-    client_name:name.trim(), status:'進行中', attribute:'潜在', contact_start:ym,
+    client_name:name.trim(), stage:'接触しただけ', standing:'継続中', attribute:'潜在', contact_start:ym,
     updated_at:now.toISOString()
   }).select();
   if(error){alert('追加できませんでした: '+error.message);return;}
@@ -1048,7 +1060,8 @@ async function saveCorp(){
   const upd={client_name:document.getElementById('cNameEdit').value.trim()||currentCorp.client_name,
     contact_person:document.getElementById('cContact').value.trim(),
     owner:document.getElementById('cOwner').value.trim(),
-    status:document.getElementById('cStatus').value,
+    stage:document.getElementById('cStage').value,
+    standing:document.getElementById('cStanding').value,
     attribute:document.getElementById('cAttr').value,
     next_action:document.getElementById('cNext').value,
     current_summary:document.getElementById('cSummary').value,
