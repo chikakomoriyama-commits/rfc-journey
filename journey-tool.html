@@ -38,8 +38,8 @@
   .badge.wip{background:#fdf3dd;color:var(--amber);}
   .badge.none{background:#eee9e0;color:var(--gray);}
   .upd{font-size:10px;color:var(--gray);}
-  #detail{position:fixed;inset:0;background:rgba(26,20,16,.5);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:28px 12px;z-index:20;}
-  #detail.open{display:flex;}
+  #detail,#cdetail{position:fixed;inset:0;background:rgba(26,20,16,.5);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:28px 12px;z-index:20;}
+  #detail.open,#cdetail.open{display:flex;}
   .dcard{background:#fff;border-radius:16px;max-width:660px;width:100%;padding:26px;}
   .dcard h2{font-size:20px;font-weight:900;}
   .dmeta{font-size:12.5px;color:var(--gray);margin:4px 0 14px;}
@@ -91,6 +91,26 @@
   .jeditform .savebtn{background:var(--accent);color:#fff;}
   .jeditform .delbtn{background:#eee;color:#a33;}
   .jeditform .cancelbtn{background:#eee9e0;}
+  /* corp */
+  .crow{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .crow:hover{border-color:var(--accent);}
+  .crow .nm{font-weight:700;font-size:14.5px;}
+  .crow .sub{font-size:11.5px;color:var(--gray);margin-top:2px;}
+  .cstat{font-size:11px;padding:3px 10px;border-radius:999px;white-space:nowrap;}
+  .cstat.進行中{background:#e7f3ec;color:var(--green);}
+  .cstat.保留{background:#fdf3dd;color:var(--amber);}
+  .cstat.終了{background:#eee9e0;color:var(--gray);}
+  .cstat.打ち切り{background:#f6e3e3;color:#a33;}
+  .histbox{background:#f7f5f0;border:1px solid var(--line);border-radius:8px;padding:12px;font-size:12.5px;line-height:1.7;white-space:pre-wrap;max-height:120px;overflow:hidden;position:relative;}
+  .histbox.expanded{max-height:none;}
+  .histmore{font-size:12px;color:var(--accent);cursor:pointer;font-weight:600;margin-top:4px;}
+  .histlabel{font-size:11px;color:var(--gray);margin-bottom:4px;}
+  .evrow{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;align-items:baseline;}
+  .evym{font-weight:700;color:var(--accent);min-width:62px;font-variant-numeric:tabular-nums;}
+  .evdel{margin-left:auto;color:var(--gray);cursor:pointer;font-size:11px;}
+  .evdel:hover{color:#a33;}
+  .linkperson{font-size:12.5px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;margin:4px 0;cursor:pointer;}
+  .linkperson:hover{border-color:var(--accent);}
   /* timeline */
   .tlrow{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
   .tlym{font-weight:700;color:var(--accent);min-width:66px;font-variant-numeric:tabular-nums;}
@@ -130,6 +150,7 @@
 <main id="app" style="display:none">
   <div class="tabs">
     <div class="tab on" data-tab="list" onclick="switchTab('list')">名簿</div>
+    <div class="tab" data-tab="corp" onclick="switchTab('corp')">法人</div>
     <div class="tab" data-tab="analytics" onclick="switchTab('analytics')">分析</div>
   </div>
 
@@ -156,8 +177,52 @@
     <div class="plist" id="list"></div>
   </div>
 
+  <div id="corpView" style="display:none">
+    <div class="toolbar">
+      <input id="cq" placeholder="法人名・担当者・メモで検索" oninput="renderCorp()">
+      <select id="cStatusF" onchange="renderCorp()"><option value="">ステータス: 全て</option></select>
+    </div>
+    <div class="plist" id="corpList"></div>
+  </div>
   <div id="analyticsView" style="display:none"></div>
 </main>
+
+<div id="cdetail" onclick="if(event.target===this)closeCorp()">
+  <div class="dcard">
+    <h2 id="cName"></h2>
+    <div class="dmeta" id="cMeta"></div>
+    <div id="cFacts"></div>
+    <label>活動記録（新しいことがあったら足していく）</label>
+    <div id="cEvents"></div>
+    <div class="tlform">
+      <input id="evYm" placeholder="2026-07" style="width:100px">
+      <input id="evTitle" placeholder="何があったか（例: 経営会議で提案）" style="flex:1;min-width:200px">
+      <button onclick="addCorpEvent()">追加</button>
+    </div>
+    <label>現状サマリー（1〜2行。今どうなっているか）</label>
+    <input id="cSummary" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;">
+    <label>この法人から個人で学びに来た人</label>
+    <div id="cLinked"></div>
+    <div id="cHistory"></div>
+    <div class="drow">
+      <div><label>ステータス</label>
+        <select id="cStatus"><option value="">（未記入）</option><option>進行中</option><option>保留</option><option>終了</option><option>打ち切り</option><option>単発のみ</option></select>
+      </div>
+      <div><label>属性</label>
+        <select id="cAttr"><option value="">（未記入）</option><option>既得意</option><option>潜在</option></select>
+      </div>
+    </div>
+    <label>次のアクション</label>
+    <input id="cNext" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;">
+    <label>作業メモ（自由に書き換えてOK）</label>
+    <textarea id="cNote"></textarea>
+    <div class="actions">
+      <button id="closeBtn" onclick="closeCorp()">閉じる</button>
+      <button id="saveBtn" onclick="saveCorp()">保存</button>
+    </div>
+    <div id="cSaveMsg" style="font-size:12px;color:var(--green);text-align:center;margin-top:8px;height:16px;"></div>
+  </div>
+</div>
 
 <div id="detail" onclick="if(event.target===this)closeDetail()">
   <div class="dcard">
@@ -166,7 +231,10 @@
     <div id="dFacts"></div>
     <div class="journey" id="dJourney"></div>
     <div class="addtp" onclick="toggleTpForm()">＋ 接点を追加（パーソナルコンサル・面談・その他）</div>
-    <div class="mergebtn" onclick="toggleMerge()" style="margin:2px 0 6px 19px;">⇄ この人を別の人に統合する（同一人物・旧姓など）</div>
+    <div style="display:flex;gap:16px;margin:2px 0 6px 19px;">
+      <div class="mergebtn" onclick="toggleMerge()">⇄ この人を別の人に統合する（同一人物・旧姓など）</div>
+      <div class="mergebtn" onclick="deletePerson()" style="color:#a33;">🗑 このレコードを削除</div>
+    </div>
     <div class="mergebox" id="mergeBox">
       <div style="font-size:12px;color:var(--gray);margin-bottom:6px;">この人の履歴を、選んだ人にまとめます。<b>この人のレコードは削除されます。</b></div>
       <input id="mergeQ" placeholder="統合先の人を名前で検索" oninput="renderMergeResults()">
@@ -253,7 +321,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_st8Ylnt61zDYX0ogwz7mpw_3x1t-Tzk";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let persons=[], tpsByPerson={}, current=null, filtered=[];
 let routeFilter="", triggerFilter="", tagFilter="", userEmail="", jpFirst=true, showInternal=false;
-let initiatives=[];
+let initiatives=[], corps=[], currentCorp=null, corpEvents={};
 
 async function signIn(){ await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href}}); }
 sb.auth.onAuthStateChange(async (_e,session)=>{ if(session){ userEmail=session.user.email||''; document.getElementById('login').style.display='none'; document.getElementById('app').style.display='block'; await load(); } });
@@ -271,6 +339,14 @@ async function load(){
   const yf=document.getElementById('yearF');
   yf.innerHTML='<option value="">初回年: 全て</option>';
   years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent='初回 '+y;yf.appendChild(o);});
+  const cp=await sb.from('corporate_clients').select('*');
+  corps=(cp.data||[]);
+  const csf=document.getElementById('cStatusF');
+  [...new Set(corps.map(c=>c.status).filter(Boolean))].sort().forEach(s=>{
+    const o=document.createElement('option');o.value=s;o.textContent=s;csf.appendChild(o);});
+  const ce=await sb.from('corp_events').select('*');
+  corpEvents={};
+  (ce.data||[]).forEach(e=>{(corpEvents[e.client_id]=corpEvents[e.client_id]||[]).push(e);});
   const ini=await sb.from('initiatives').select('*');
   initiatives=(ini.data||[]).sort((a,b)=>(a.ym||'').localeCompare(b.ym||''));
   buildChips(); render();
@@ -386,6 +462,12 @@ function openDetail(id){
   if(current.purpose)facts+=`<div class="fact"><b>初回の参加目的:</b> ${current.purpose}</div>`;
   if(current.prehistory)facts+=`<div class="fact"><b>前史(STARクラブ/道場):</b> ${current.prehistory}</div>`;
   if(current.personal_consulting)facts+=`<div class="fact"><b>パーソナルコンサルティング</b> 実施あり</div>`;
+  if(current.company){
+    const key=current.company.replace(/株式会社|有限会社|一般社団法人|NPO法人|学校法人|\s/g,'');
+    const hit=corps.find(c=>{const n=(c.client_name||'').replace(/株式会社|有限会社|一般社団法人|NPO法人|学校法人|\s/g,'');
+      return n&&key&&(n.includes(key)||key.includes(n));});
+    if(hit)facts+=`<div class="fact"><b>法人クライアント:</b> ${hit.client_name}（${hit.status||'状態未記入'}）<span style="color:var(--accent);cursor:pointer;margin-left:8px" onclick="closeDetail();switchTab('corp');openCorp(${hit.id})">→ 法人カードを見る</span></div>`;
+  }
   document.getElementById('dFacts').innerHTML=facts;
   renderJourney(id);
   document.getElementById('tpForm').classList.remove('open');
@@ -480,6 +562,20 @@ function renderTagBox(){
     renderTagBox();
   };
   box.appendChild(nb);
+}
+async function deletePerson(){
+  const n=(tpsByPerson[current.id]||[]).length;
+  const msg=n>0
+    ? `「${current.name}」を削除します。\n\n⚠ 接点 ${n}件 も一緒に消えます。\n同一人物の重複であれば「統合」を使うと履歴が残ります。\n\n本当に削除しますか？`
+    : `「${current.name}」を削除します。よろしいですか？`;
+  if(!confirm(msg))return;
+  if(n>0 && !confirm('もう一度確認します。接点も含めて完全に削除します。よろしいですか？'))return;
+  const {error}=await sb.from('persons').delete().eq('id',current.id);
+  if(error){alert('削除できませんでした: '+error.message);return;}
+  persons=persons.filter(p=>p.id!==current.id);
+  delete tpsByPerson[current.id];
+  closeDetail();
+  buildChips(); render();
 }
 async function syncYears(pid){
   const p=persons.find(x=>x.id===pid); if(!p)return;
@@ -594,6 +690,126 @@ async function addPerson(){
   buildChips(); render();
   openDetail(p.id);
 }
+function linkedPersons(clientName){
+  const key=(clientName||'').replace(/株式会社|有限会社|一般社団法人|NPO法人|学校法人|\s/g,'').trim();
+  if(!key)return [];
+  return persons.filter(p=>{
+    const c=(p.company||'').replace(/株式会社|有限会社|一般社団法人|NPO法人|学校法人|\s/g,'');
+    if(!c)return false;
+    return c.includes(key)||key.includes(c);
+  });
+}
+function renderCorp(){
+  const q=(document.getElementById('cq').value||'').toLowerCase();
+  const sf=document.getElementById('cStatusF').value;
+  const list=document.getElementById('corpList'); list.innerHTML='';
+  corps.filter(c=>{
+    if(sf && c.status!==sf)return false;
+    if(q){const hay=((c.client_name||'')+' '+(c.owner||'')+' '+(c.notes||'')+' '+(c.next_action||'')+' '+(c.current_summary||'')+' '+(c.process_detail||'')).toLowerCase();
+      if(!hay.includes(q))return false;}
+    return true;
+  }).sort((a,b)=>(b.contact_start||'').localeCompare(a.contact_start||'')).forEach(c=>{
+    const lp=linkedPersons(c.client_name);
+    const div=document.createElement('div');div.className='crow';
+    div.innerHTML=`<div><div class="nm">${c.client_name}</div>
+      <div class="sub">${c.attribute||''} ・ 開始 ${c.contact_start||'?'}${lp.length?` ・ 個人受講 ${lp.length}名`:''}${(corpEvents[c.id]||[]).length?` ・ 活動${(corpEvents[c.id]||[]).length}件`:''}</div>
+      ${c.current_summary?`<div class="sub" style="color:var(--ink);margin-top:3px">${c.current_summary}</div>`:''}</div>
+      <span class="cstat ${c.status||''}">${c.status||'未記入'}</span>`;
+    div.onclick=()=>openCorp(c.id);
+    list.appendChild(div);
+  });
+}
+function openCorp(id){
+  currentCorp=corps.find(c=>c.id===id);
+  const c=currentCorp;
+  document.getElementById('cName').textContent=c.client_name;
+  document.getElementById('cMeta').textContent=`責任者: ${c.owner||'—'} ・ コンタクト開始 ${c.contact_start||'—'}`;
+  let f='';
+  if(c.contract_date)f+=`<div class="fact"><b>契約日:</b> ${c.contract_date}</div>`;
+  if(c.planning_date)f+=`<div class="fact"><b>戦略プランニング実施:</b> ${c.planning_date}</div>`;
+  if(c.lead_time)f+=`<div class="fact"><b>提案→契約 リードタイム:</b> ${c.lead_time}日</div>`;
+  document.getElementById('cFacts').innerHTML=f;
+  const lp=linkedPersons(c.client_name);
+  const box=document.getElementById('cLinked');
+  box.innerHTML = lp.length? '' : '<div style="font-size:12px;color:var(--gray)">紐づく個人がまだありません（個人カードの「所属・関連法人」に法人名を入れると自動で繋がります）</div>';
+  lp.forEach(p=>{
+    const n=(tpsByPerson[p.id]||[]).length;
+    const d=document.createElement('div');d.className='linkperson';
+    d.innerHTML=`<b>${p.name}</b> <span style="color:#999">${n}接点 ・ ${p.first_year||'?'}〜${p.last_year||'?'}</span>`;
+    d.onclick=()=>{closeCorp();switchTab('list');openDetail(p.id);};
+    box.appendChild(d);
+  });
+  document.getElementById('cStatus').value=c.status||'';
+  document.getElementById('cAttr').value=c.attribute||'';
+  document.getElementById('cNext').value=c.next_action||'';
+  document.getElementById('cSummary').value=c.current_summary||'';
+  document.getElementById('cNote').value=c.memory_note||'';
+  renderCorpEvents();
+  renderHistory(c);
+  document.getElementById('cSaveMsg').textContent='';
+  document.getElementById('cdetail').classList.add('open');
+}
+function paragraphize(s){
+  if(!s)return '';
+  return String(s)
+    .replace(/(\d{4}[\.\/年]\s?\d{1,2}[\.\/月]\s?\d{1,2}日?)/g, '\n\n$1')
+    .replace(/(第[一二三四五六七八九十]+回[：:])/g, '\n\n$1')
+    .replace(/\n{3,}/g,'\n\n').trim();
+}
+function renderHistory(c){
+  const box=document.getElementById('cHistory');
+  const parts=[];
+  if(c.notes)parts.push(['Notes（2025年時点の記録）', c.notes]);
+  if(c.process_detail)parts.push(['プロセス・詳細情報', c.process_detail]);
+  if(c.next_action_due)parts.push(['当時のNext Action期日', c.next_action_due+'（※古い情報）']);
+  if(!parts.length){box.innerHTML='';return;}
+  box.innerHTML='<label>経緯（旧Notionの記録・読み取り専用）</label>'+parts.map((p,i)=>
+    `<div class="histlabel">${p[0]}</div>
+     <div class="histbox" id="hb${i}">${paragraphize(p[1]).replace(/</g,'&lt;')}</div>
+     <div class="histmore" onclick="document.getElementById('hb${i}').classList.toggle('expanded');this.textContent=document.getElementById('hb${i}').classList.contains('expanded')?'▲ 折りたたむ':'▼ 続きを読む'">▼ 続きを読む</div>`
+  ).join('');
+}
+function renderCorpEvents(){
+  const box=document.getElementById('cEvents');
+  const evs=(corpEvents[currentCorp.id]||[]).sort((a,b)=>(a.ym||'').localeCompare(b.ym||''));
+  box.innerHTML = evs.length? '' : '<div style="font-size:12px;color:var(--gray)">まだ記録がありません</div>';
+  evs.forEach(e=>{
+    const d=document.createElement('div');d.className='evrow';
+    d.innerHTML=`<span class="evym">${e.ym||'—'}</span><span>${e.title}</span>
+      <span class="evdel" onclick="deleteCorpEvent(${e.id})">削除</span>`;
+    box.appendChild(d);
+  });
+}
+async function addCorpEvent(){
+  const ym=document.getElementById('evYm').value.trim();
+  const title=document.getElementById('evTitle').value.trim();
+  if(!title){alert('内容を入力してください');return;}
+  const {data,error}=await sb.from('corp_events').insert({client_id:currentCorp.id,ym:ym||null,title,added_by:userEmail}).select();
+  if(error){alert(error.message);return;}
+  (corpEvents[currentCorp.id]=corpEvents[currentCorp.id]||[]).push(data[0]);
+  document.getElementById('evYm').value='';document.getElementById('evTitle').value='';
+  renderCorpEvents();
+}
+async function deleteCorpEvent(id){
+  if(!confirm('この記録を削除しますか？'))return;
+  const {error}=await sb.from('corp_events').delete().eq('id',id);
+  if(error){alert(error.message);return;}
+  corpEvents[currentCorp.id]=(corpEvents[currentCorp.id]||[]).filter(e=>e.id!==id);
+  renderCorpEvents();
+}
+function closeCorp(){document.getElementById('cdetail').classList.remove('open');renderCorp();}
+async function saveCorp(){
+  const upd={status:document.getElementById('cStatus').value,
+    attribute:document.getElementById('cAttr').value,
+    next_action:document.getElementById('cNext').value,
+    current_summary:document.getElementById('cSummary').value,
+    memory_note:document.getElementById('cNote').value,
+    updated_at:new Date().toISOString()};
+  const {error}=await sb.from('corporate_clients').update(upd).eq('id',currentCorp.id);
+  if(error){document.getElementById('cSaveMsg').textContent='エラー: '+error.message;return;}
+  Object.assign(currentCorp,upd);
+  document.getElementById('cSaveMsg').textContent='保存しました ✓';
+}
 async function addInitiative(){
   const ym=document.getElementById('iniYm').value.trim();
   const title=document.getElementById('iniTitle').value.trim();
@@ -615,7 +831,9 @@ async function deleteInitiative(id){
 function switchTab(t){
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.tab===t));
   document.getElementById('listView').style.display=t==='list'?'block':'none';
+  document.getElementById('corpView').style.display=t==='corp'?'block':'none';
   document.getElementById('analyticsView').style.display=t==='analytics'?'block':'none';
+  if(t==='corp')renderCorp();
   if(t==='analytics')renderAnalytics();
 }
 function renderAnalytics(){
