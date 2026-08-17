@@ -38,6 +38,42 @@
   .badge.wip{background:#fdf3dd;color:var(--amber);}
   .badge.none{background:#eee9e0;color:var(--gray);}
   .upd{font-size:10px;color:var(--gray);}
+  .kk-head{display:flex;flex-direction:column;gap:10px;margin-bottom:12px;}
+  .kk-head .toolbar select{width:auto;max-width:260px;}
+  #campaignForm select{width:auto;}
+  .kk-sum{display:flex;gap:10px;flex-wrap:wrap;}
+  .kk-sum .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 16px;min-width:110px;}
+  .kk-sum .tile b{display:block;font-size:22px;color:var(--accent);line-height:1.1;}
+  .kk-sum .tile span{font-size:11.5px;color:var(--gray);}
+  .kk-btn{padding:9px 16px;border:0;border-radius:999px;background:var(--accent);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  .kk-btn.ghost{background:#fff;color:var(--accent);border:1px solid var(--accent);}
+  .kk-section{margin:18px 0 6px;}
+  .kk-section h3{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+  .kk-section h3 span{font-weight:400;color:var(--gray);font-size:12px;}
+  .kk-help{font-size:11.5px;color:var(--gray);margin-bottom:8px;}
+  .kkrow{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:start;}
+  .kkrow.overdue{border-left:4px solid var(--accent);}
+  .kkrow.soon{border-left:4px solid var(--amber);}
+  .kkrow .nm{font-weight:700;font-size:14.5px;cursor:pointer;}
+  .kkrow .nm:hover{color:var(--accent);}
+  .kkrow .sub{font-size:11.5px;color:var(--gray);margin-top:2px;}
+  .kkrow .reason{font-size:12.5px;margin-top:4px;}
+  .kkrow .how{font-size:12px;color:var(--amber);margin-top:2px;}
+  .kkrow .acts{display:flex;flex-direction:column;gap:6px;align-items:flex-end;}
+  .kkrow .acts .btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+  .kkrow .acts button{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;cursor:pointer;}
+  .kkrow .acts button.p{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .kkrow .acts button.g{background:#e7f3ec;color:var(--green);border-color:#cfe6d8;}
+  .kkrow .acts input{padding:6px 10px;border:1px solid var(--line);border-radius:7px;font-size:12px;width:220px;}
+  .kkrow .due{font-size:11.5px;color:var(--gray);}
+  .kkrow .due b{color:var(--ink);}
+  .kk-empty{font-size:13px;color:var(--gray);background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:16px;}
+  .ibadge{font-size:11px;padding:3px 10px;border-radius:999px;background:#f3e6e8;color:var(--accent);white-space:nowrap;margin-right:6px;}
+  .ibadge.st-contacted{background:#fdf3dd;color:var(--amber);}
+  .ibadge.st-won{background:#e7f3ec;color:var(--green);}
+  .ibadge.st-passed,.ibadge.st-no_response,.ibadge.st-skip{background:#eee9e0;color:var(--gray);}
+  .ihist{border-left:3px solid var(--amber);margin:4px 0 12px;padding-left:16px;font-size:12.5px;display:flex;flex-direction:column;gap:5px;}
+  .ihist .ttl{font-size:12px;font-weight:700;color:var(--amber);}
   #detail,#cdetail{position:fixed;inset:0;background:rgba(26,20,16,.5);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:28px 12px;z-index:20;}
   #detail.open,#cdetail.open{display:flex;}
   .dcard{background:#fff;border-radius:16px;max-width:660px;width:100%;padding:26px;}
@@ -152,6 +188,7 @@
     <div class="tab on" data-tab="list" onclick="switchTab('list')">名簿</div>
     <div class="tab" data-tab="corp" onclick="switchTab('corp')">法人</div>
     <div class="tab" data-tab="analytics" onclick="switchTab('analytics')">分析</div>
+    <div class="tab" data-tab="koekake" onclick="switchTab('koekake')">声かけ</div>
   </div>
 
   <div id="listView">
@@ -202,6 +239,42 @@
     <div class="plist" id="corpList"></div>
   </div>
   <div id="analyticsView" style="display:none"></div>
+  <div id="koekakeView" style="display:none">
+    <div class="kk-head">
+      <div class="kk-sum" id="kkSummary"></div>
+      <div class="toolbar" style="margin:0">
+        <select id="kkBucket" onchange="renderKoekake()">
+          <option value="all">期限: 全て</option>
+          <option value="today">今日〜3日以内</option>
+          <option value="week">今週（7日以内）</option>
+          <option value="month">今月（それ以降）</option>
+        </select>
+        <select id="kkPurpose" onchange="renderKoekake()"><option value="">目的: 全て</option></select>
+        <select id="kkType" onchange="renderKoekake()"><option value="">介入: 全て</option></select>
+        <button class="kk-btn ghost" onclick="toggleCampaignForm()">＋ きっかけ（募集・開催・ローンチ）を登録</button>
+        <button class="kk-btn ghost" onclick="loadKoekake(true)">↻ 更新</button>
+      </div>
+    </div>
+    <div class="tpform" id="campaignForm">
+      <div style="font-size:12px;color:var(--gray);margin-bottom:8px;">募集開始・倶楽部の次回開催・新プロダクトのローンチなど「こちら側で起きること」を1行登録すると、対象者が声かけリストに並びます。</div>
+      <div class="row">
+        <select id="cfType" style="max-width:260px"></select>
+        <input id="cfName" placeholder="名前 (例: SCCP 2026秋 募集 / 倶楽部 9月回)">
+      </div>
+      <div class="row">
+        <input id="cfDate" type="date" style="max-width:170px" title="発生日（募集開始日・開催日）">
+        <input id="cfWindow" type="number" value="30" style="max-width:110px" title="発生日から何日間対象にするか">
+        <input id="cfTag" placeholder="対象タグ (A4/E1/E2 のときだけ。例: 経営者・起業家)">
+        <button onclick="addCampaign()">登録</button>
+      </div>
+      <div id="cfList" style="font-size:12px;color:var(--gray);margin-top:6px;"></div>
+    </div>
+    <div class="kk-section"><h3>今やる声かけ <span id="kkCountList"></span></h3>
+      <div class="kk-help">開くたびに台帳から計算し直しています。1人につき最優先の1件だけ表示。対応を記録すると翌日から消えます（介入ごとの再表示間隔あり）。</div>
+      <div class="plist" id="kkList"></div></div>
+    <div class="kk-section"><h3>声かけ済み・結果待ち <span id="kkCountOpen"></span></h3><div class="plist" id="kkOpen"></div></div>
+    <div class="kk-section"><h3>今月の記録 <span id="kkCountDone"></span></h3><div class="plist" id="kkDone"></div></div>
+  </div>
 </main>
 
 <div id="cdetail" onclick="if(event.target===this)closeCorp()">
@@ -276,6 +349,7 @@
     <div class="dmeta" id="dMeta"></div>
     <div id="dFacts"></div>
     <div class="journey" id="dJourney"></div>
+    <div class="ihist" id="dInterventions" style="display:none"></div>
     <div class="addtp" onclick="toggleTpForm()">＋ 接点を追加（パーソナルコンサル・面談・その他）</div>
     <div style="display:flex;gap:16px;margin:2px 0 6px 19px;">
       <div class="mergebtn" onclick="toggleMerge()">⇄ この人を別の人に統合する（同一人物・旧姓など）</div>
@@ -289,7 +363,7 @@
     </div>
     <div class="tpform" id="tpForm">
       <div class="row">
-        <input id="tpYear" placeholder="年 (例: 2026)" style="max-width:110px">
+        <input id="tpYear" placeholder="年月 (例: 2026-09)" style="max-width:110px">
         <input id="tpProgram" placeholder="接点の内容 (例: パーソナルコンサルティング)">
       </div>
       <div class="row">
@@ -540,6 +614,7 @@ function openDetail(id){
   }
   document.getElementById('dFacts').innerHTML=facts;
   renderJourney(id);
+  loadPersonInterventions(id);
   document.getElementById('tpForm').classList.remove('open');
   document.getElementById('dInternal').checked=!!current.is_internal;
   document.getElementById('dNameEdit').value=current.name||'';
@@ -564,7 +639,7 @@ function renderJourney(id){
     const d=document.createElement('div');d.className='jitem';
     if(editingTpId===t.id){
       d.innerHTML=`<div class="jeditform">
-        <input id="etYear" value="${t.year||''}" placeholder="年" style="width:70px">
+        <input id="etYear" value="${t.year||''}" placeholder="年月" style="width:90px">
         <input id="etProgram" value="${(t.program||'').replace(/"/g,'&quot;')}" placeholder="内容" style="flex:1;min-width:150px">
         <input id="etNote" value="${(t.note||'').replace(/"/g,'&quot;')}" placeholder="メモ" style="flex:1;min-width:120px">
         <button class="savebtn" onclick="saveTp(${t.id})">保存</button>
@@ -813,6 +888,8 @@ function updateHeader(shown){
   }else if(curTab==='analytics'){
     const pa=persons.filter(p=>!p.is_internal).length;
     el.innerHTML=`分析対象 個人 ${pa}人 ・ 法人 ${corps.length}社`;
+  }else if(curTab==='koekake'){
+    el.innerHTML=`声かけ 未対応 ${kk.list.length}人 ・ 結果待ち ${kk.open.length}件<br><span style="font-size:10px;opacity:.7">今月の記録 ${kk.done.length}件</span>`;
   }else{
     const done=persons.filter(p=>p.review_status==='完了').length;
     const wip=persons.filter(p=>p.review_status==='途中').length;
@@ -1097,8 +1174,10 @@ function switchTab(t){
   document.getElementById('listView').style.display=t==='list'?'block':'none';
   document.getElementById('corpView').style.display=t==='corp'?'block':'none';
   document.getElementById('analyticsView').style.display=t==='analytics'?'block':'none';
+  document.getElementById('koekakeView').style.display=t==='koekake'?'block':'none';
   if(t==='corp')renderCorp();
   if(t==='analytics'){renderAnalytics();updateHeader(0);}
+  if(t==='koekake'){loadKoekake();}
 }
 function renderAnalytics(){
   const v=document.getElementById('analyticsView');
@@ -1233,6 +1312,165 @@ function renderAnalytics(){
   <div class="insight"><h3>到達段階 × 現在の関係（記入済みの分布）</h3>
     <table>${stRows}</table></div>`;
 }
+// ===================== 声かけ（介入リマインド） =====================
+const kk={list:[],open:[],done:[],types:[],campaigns:[],loaded:false,error:null};
+const KK_STATUS={pending:'未対応',contacted:'声かけ済',won:'成約・参加',passed:'見送り（先方）',no_response:'反応なし',skip:'今回は対象外'};
+function kkToday(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function kkDays(dateStr){ if(!dateStr)return 999; const a=new Date(kkToday()), b=new Date(dateStr); return Math.round((b-a)/86400000); }
+async function loadKoekake(force){
+  if(kk.loaded && !force){renderKoekake();return;}
+  const box=document.getElementById('kkList'); box.innerHTML='<div class="kk-empty">読み込み中…</div>';
+  const monthStart=kkToday().slice(0,8)+'01';
+  const [t,c,l,o,d]=await Promise.all([
+    sb.from('intervention_types').select('*').order('priority'),
+    sb.from('campaigns').select('*').order('event_date',{ascending:false}),
+    sb.from('v_koekake_list').select('*').order('priority').order('due_by'),
+    sb.from('v_koekake_open').select('*').order('acted_at',{ascending:false}),
+    sb.from('interventions').select('*').gte('triggered_at',monthStart).not('status','in','("pending","contacted")').order('acted_at',{ascending:false}),
+  ]);
+  const err=[t,c,l,o,d].find(r=>r.error);
+  if(err){ kk.error=err.error.message; kk.loaded=false;
+    box.innerHTML=`<div class="kk-empty">声かけ用のビューがまだありません（${kk.error}）。<br>Supabase の SQL Editor で <b>sql/01_intervention_layer.sql</b> を実行すると、このタブが動き始めます。</div>`;
+    return; }
+  kk.error=null; kk.loaded=true;
+  kk.types=t.data||[]; kk.campaigns=c.data||[]; kk.list=l.data||[]; kk.open=o.data||[]; kk.done=d.data||[];
+  // selects
+  const ps=document.getElementById('kkPurpose'), ts=document.getElementById('kkType');
+  const keepP=ps.value, keepT=ts.value;
+  ps.innerHTML='<option value="">目的: 全て</option>'; [...new Set(kk.types.map(x=>x.purpose).filter(Boolean))].forEach(x=>{const o=document.createElement('option');o.value=x;o.textContent=x;ps.appendChild(o);});
+  ts.innerHTML='<option value="">介入: 全て</option>'; kk.types.forEach(x=>{const o=document.createElement('option');o.value=x.itype;o.textContent=`${x.itype} ${x.name}`;ts.appendChild(o);});
+  ps.value=keepP; ts.value=keepT;
+  const cf=document.getElementById('cfType'); cf.innerHTML='';
+  kk.types.filter(x=>['A2','A3','B3','A4','E1','E2'].includes(x.itype)).forEach(x=>{const o=document.createElement('option');o.value=x.itype;o.textContent=`${x.itype} ${x.name}`;cf.appendChild(o);});
+  renderCampaignList();
+  renderKoekake();
+}
+function kkTypeName(itype){const t=kk.types.find(x=>x.itype===itype);return t?t.name:itype;}
+function kkPerson(id){return persons.find(p=>p.id===id);}
+function renderKoekake(){
+  const bucket=document.getElementById('kkBucket').value;
+  const purpose=document.getElementById('kkPurpose').value;
+  const itype=document.getElementById('kkType').value;
+  const inBucket=r=>{const n=kkDays(r.due_by); if(bucket==='today')return n<=3; if(bucket==='week')return n<=7; if(bucket==='month')return n>7; return true;};
+  const rows=kk.list.filter(r=>inBucket(r)&&(!purpose||r.purpose===purpose)&&(!itype||r.itype===itype));
+  // summary tiles
+  const nToday=kk.list.filter(r=>kkDays(r.due_by)<=3).length, nWeek=kk.list.filter(r=>kkDays(r.due_by)<=7).length;
+  document.getElementById('kkSummary').innerHTML=
+    `<div class="tile"><b>${nToday}</b><span>今日〜3日以内</span></div><div class="tile"><b>${nWeek}</b><span>今週（7日以内）</span></div><div class="tile"><b>${kk.list.length}</b><span>今月の声かけ（全体）</span></div><div class="tile"><b>${kk.open.length}</b><span>結果待ち</span></div>`;
+  document.getElementById('kkCountList').textContent=`${rows.length}人`;
+  document.getElementById('kkCountOpen').textContent=`${kk.open.length}件`;
+  document.getElementById('kkCountDone').textContent=`${kk.done.length}件`;
+  // list
+  const box=document.getElementById('kkList'); box.innerHTML='';
+  if(!rows.length){box.innerHTML='<div class="kk-empty">この条件で今やる声かけはありません。募集・開催が決まったら「きっかけを登録」で追加すると対象者が並びます。</div>';}
+  rows.forEach(r=>{
+    const n=kkDays(r.due_by);
+    const div=document.createElement('div');div.className='kkrow'+(n<0?' overdue':(n<=7?' soon':''));
+    const dueTxt=n<0?`<b>期限切れ ${-n}日</b>`:(n===0?'<b>今日まで</b>':`あと <b>${n}</b> 日（${r.due_by}）`);
+    const more=r.n_candidates>1?` ・ ほか ${r.n_candidates-1} 件の候補あり`:'';
+    div.innerHTML=`<div>
+        <div class="nm" onclick="openDetail(${r.person_id})">${r.name}</div>
+        <div class="sub">${r.email||'email不明'}${r.company?' ・ '+r.company:''}${r.stage||r.standing?' ・ '+[r.stage,r.standing].filter(Boolean).join(' × '):''}</div>
+        <div class="reason"><span class="ibadge">${r.itype} ${r.intervention}</span>${r.reason||''}</div>
+        <div class="how">手段: ${r.channel||'—'}${more}</div>
+      </div>
+      <div class="acts">
+        <div class="due">${dueTxt}</div>
+        <input id="kknote-${r.person_id}" placeholder="メモ (任意)">
+        <div class="btns">
+          <button class="p" onclick="kkRecord(${r.person_id},'${r.itype}','contacted')">声かけした</button>
+          <button class="g" onclick="kkRecord(${r.person_id},'${r.itype}','won')">成約・参加</button>
+          <button onclick="kkRecord(${r.person_id},'${r.itype}','skip')">今回は見送る</button>
+        </div>
+      </div>`;
+    box.appendChild(div);
+  });
+  // open
+  const ob=document.getElementById('kkOpen'); ob.innerHTML='';
+  if(!kk.open.length)ob.innerHTML='<div class="kk-empty">結果待ちはありません。</div>';
+  kk.open.forEach(i=>{
+    const div=document.createElement('div');div.className='kkrow';
+    div.innerHTML=`<div>
+        <div class="nm" onclick="openDetail(${i.person_id})">${i.name}</div>
+        <div class="reason"><span class="ibadge st-${i.status}">${KK_STATUS[i.status]||i.status}</span><span class="ibadge">${i.itype} ${i.intervention}</span>${i.note||''}</div>
+        <div class="sub">声かけ日 ${i.acted_at||i.triggered_at}${i.added_by?' ・ '+i.added_by.split('@')[0]:''}</div>
+      </div>
+      <div class="acts"><div class="btns">
+        <button class="g" onclick="kkUpdate(${i.id},'won')">成約・参加</button>
+        <button onclick="kkUpdate(${i.id},'passed')">見送られた</button>
+        <button onclick="kkUpdate(${i.id},'no_response')">反応なし</button>
+      </div></div>`;
+    ob.appendChild(div);
+  });
+  // done
+  const db=document.getElementById('kkDone'); db.innerHTML='';
+  if(!kk.done.length)db.innerHTML='<div class="kk-empty">今月の記録はまだありません。</div>';
+  kk.done.slice(0,100).forEach(i=>{
+    const p=kkPerson(i.person_id);
+    const div=document.createElement('div');div.className='kkrow';
+    div.innerHTML=`<div>
+        <div class="nm" onclick="openDetail(${i.person_id})">${p?p.name:'#'+i.person_id}</div>
+        <div class="reason"><span class="ibadge st-${i.status}">${KK_STATUS[i.status]||i.status}</span><span class="ibadge">${i.itype} ${kkTypeName(i.itype)}</span>${i.note||''}</div>
+        <div class="sub">${i.acted_at||i.triggered_at}${i.added_by?' ・ '+i.added_by.split('@')[0]:''}</div>
+      </div>
+      <div class="acts"><div class="btns"><button onclick="kkUndo(${i.id})">取り消す</button></div></div>`;
+    db.appendChild(div);
+  });
+  updateHeader(rows.length);
+}
+async function kkRecord(personId,itype,status){
+  const noteEl=document.getElementById('kknote-'+personId);
+  const note=noteEl?noteEl.value.trim():'';
+  const row={person_id:personId,itype,status,triggered_at:kkToday(),acted_at:kkToday(),note,added_by:userEmail,updated_at:new Date().toISOString()};
+  const {error}=await sb.from('interventions').insert(row);
+  if(error){alert('記録できませんでした: '+error.message);return;}
+  await loadKoekake(true);
+}
+async function kkUpdate(id,status){
+  const {error}=await sb.from('interventions').update({status,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert(error.message);return;}
+  await loadKoekake(true);
+}
+async function kkUndo(id){
+  if(!confirm('この記録を取り消しますか？（声かけリストに戻ります）'))return;
+  const {error}=await sb.from('interventions').delete().eq('id',id);
+  if(error){alert(error.message);return;}
+  await loadKoekake(true);
+}
+function toggleCampaignForm(){document.getElementById('campaignForm').classList.toggle('open');}
+function renderCampaignList(){
+  const el=document.getElementById('cfList');
+  const today=kkToday();
+  const act=kk.campaigns.filter(c=>{const end=new Date(c.event_date);end.setDate(end.getDate()+(c.window_days||30));return end>=new Date(today);});
+  el.innerHTML=act.length?'現在有効: '+act.map(c=>`<span class="ibadge">${c.itype}</span>${c.name}（${c.event_date}〜${c.window_days}日${c.target_tag?'・タグ '+c.target_tag:''}） <span style="color:#a33;cursor:pointer" onclick="delCampaign(${c.id})">削除</span>`).join('<br>'):'現在有効なきっかけはありません。';
+}
+async function addCampaign(){
+  const itype=document.getElementById('cfType').value, name=document.getElementById('cfName').value.trim();
+  const date=document.getElementById('cfDate').value, win=parseInt(document.getElementById('cfWindow').value||'30',10);
+  const tag=document.getElementById('cfTag').value.trim();
+  if(!itype||!name||!date){alert('介入・名前・発生日を入力してください');return;}
+  if(['A4','E1','E2'].includes(itype)&&!tag){alert('この介入は対象タグが必要です');return;}
+  const code=`${itype.toLowerCase()}_${date.replace(/-/g,'')}_${Math.random().toString(36).slice(2,6)}`;
+  const {error}=await sb.from('campaigns').insert({code,name,event_date:date,window_days:win,target_tag:tag||null,itype});
+  if(error){alert('登録できませんでした: '+error.message);return;}
+  document.getElementById('cfName').value='';document.getElementById('cfTag').value='';
+  await loadKoekake(true);
+}
+async function delCampaign(id){
+  if(!confirm('このきっかけを削除しますか？'))return;
+  const {error}=await sb.from('campaigns').delete().eq('id',id);
+  if(error){alert(error.message);return;}
+  await loadKoekake(true);
+}
+async function loadPersonInterventions(pid){
+  const el=document.getElementById('dInterventions'); el.style.display='none'; el.innerHTML='';
+  const {data,error}=await sb.from('interventions').select('*').eq('person_id',pid).order('triggered_at',{ascending:false}).limit(20);
+  if(error||!data||!data.length)return;
+  if(!kk.types.length){const t=await sb.from('intervention_types').select('*');kk.types=t.data||[];}
+  el.style.display='flex';
+  el.innerHTML='<div class="ttl">介入（声かけ）の記録</div>'+data.map(i=>`<div><span class="yr" style="color:var(--amber);font-weight:700;margin-right:8px">${i.acted_at||i.triggered_at}</span><span class="ibadge st-${i.status}">${KK_STATUS[i.status]||i.status}</span>${i.itype} ${kkTypeName(i.itype)}${i.note?` <span style="color:var(--gray)">— ${i.note}</span>`:''}${i.added_by?` <span class="manual">(${i.added_by.split('@')[0]})</span>`:''}</div>`).join('');
+}
+
 </script>
 </body>
 </html>
