@@ -70,7 +70,7 @@
   .kk-empty{font-size:13px;color:var(--gray);background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:16px;}
   .ibadge{font-size:11px;padding:3px 10px;border-radius:999px;background:#f3e6e8;color:var(--accent);white-space:nowrap;margin-right:6px;}
   .ibadge.st-contacted{background:#fdf3dd;color:var(--amber);}
-  .ibadge.st-won{background:#e7f3ec;color:var(--green);}
+  .ibadge.st-won,.ibadge.st-done{background:#e7f3ec;color:var(--green);}
   .ibadge.st-passed,.ibadge.st-no_response,.ibadge.st-skip{background:#eee9e0;color:var(--gray);}
   .ihist{border-left:3px solid var(--amber);margin:4px 0 12px;padding-left:16px;font-size:12.5px;display:flex;flex-direction:column;gap:5px;}
   .ihist .ttl{font-size:12px;font-weight:700;color:var(--amber);}
@@ -270,7 +270,7 @@
       <div id="cfList" style="font-size:12px;color:var(--gray);margin-top:6px;"></div>
     </div>
     <div class="kk-section"><h3>今やる声かけ <span id="kkCountList"></span></h3>
-      <div class="kk-help">開くたびに台帳から計算し直しています。1人につき最優先の1件だけ表示。対応を記録すると翌日から消えます（介入ごとの再表示間隔あり）。</div>
+      <div class="kk-help">開くたびに台帳から計算し直しています。1人につき最優先の1件だけ表示。対応を記録すると翌日から消えます（介入ごとの再表示間隔あり）。オファー系は「声かけした→結果待ち」の2段階、御礼・様子伺い・ヒアリング系は「済み」で完了。</div>
       <div class="plist" id="kkList"></div></div>
     <div class="kk-section"><h3>声かけ済み・結果待ち <span id="kkCountOpen"></span></h3><div class="plist" id="kkOpen"></div></div>
     <div class="kk-section"><h3>今月の記録 <span id="kkCountDone"></span></h3><div class="plist" id="kkDone"></div></div>
@@ -1314,7 +1314,9 @@ function renderAnalytics(){
 }
 // ===================== 声かけ（介入リマインド） =====================
 const kk={list:[],open:[],done:[],types:[],campaigns:[],loaded:false,error:null};
-const KK_STATUS={pending:'未対応',contacted:'声かけ済',won:'成約・参加',passed:'見送り（先方）',no_response:'反応なし',skip:'今回は対象外'};
+const KK_STATUS={pending:'未対応',contacted:'声かけ済',done:'済み',won:'成約・参加',passed:'見送り（先方）',no_response:'反応なし',skip:'今回は対象外'};
+// 相手の反応（成約/見送り）を問わない介入：御礼・定期タッチ・様子伺い・ヒアリング・告知
+const KK_NO_OUTCOME=new Set(['C1','C2','B5','D1','F1','F2','E1','E2','E3']);
 function kkToday(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function kkDays(dateStr){ if(!dateStr)return 999; const a=new Date(kkToday()), b=new Date(dateStr); return Math.round((b-a)/86400000); }
 async function loadKoekake(force){
@@ -1377,10 +1379,12 @@ function renderKoekake(){
       <div class="acts">
         <div class="due">${dueTxt}</div>
         <input id="kknote-${r.person_id}" placeholder="メモ (任意)">
-        <div class="btns">
-          <button class="p" onclick="kkRecord(${r.person_id},'${r.itype}','contacted')">声かけした</button>
-          <button class="g" onclick="kkRecord(${r.person_id},'${r.itype}','won')">成約・参加</button>
-          <button onclick="kkRecord(${r.person_id},'${r.itype}','skip')">今回は見送る</button>
+        <div class="btns">${KK_NO_OUTCOME.has(r.itype)
+          ? `<button class="p" onclick="kkRecord(${r.person_id},'${r.itype}','done')">済み</button>
+             <button onclick="kkRecord(${r.person_id},'${r.itype}','skip')">今回は見送る</button>`
+          : `<button class="p" onclick="kkRecord(${r.person_id},'${r.itype}','contacted')">声かけした</button>
+             <button class="g" onclick="kkRecord(${r.person_id},'${r.itype}','won')">成約・参加</button>
+             <button onclick="kkRecord(${r.person_id},'${r.itype}','skip')">今回は見送る</button>`}
         </div>
       </div>`;
     box.appendChild(div);
