@@ -42,7 +42,10 @@
   .kk-head .toolbar select{width:auto;max-width:260px;}
   #campaignForm select{width:auto;}
   .kk-sum{display:flex;gap:10px;flex-wrap:wrap;}
-  .kk-sum .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 16px;min-width:110px;}
+  .kk-sum .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 20px;min-width:150px;cursor:pointer;}
+  .kk-sum .tile:hover{border-color:var(--accent);}
+  .kk-sum .tile.on{border-color:var(--accent);background:#fbf3f4;}
+  .kk-sum .tile.on span{color:var(--accent);font-weight:700;}
   .kk-sum .tile b{display:block;font-size:22px;color:var(--accent);line-height:1.1;}
   .kk-sum .tile span{font-size:11.5px;color:var(--gray);}
   .kk-btn{padding:9px 16px;border:0;border-radius:999px;background:var(--accent);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
@@ -243,6 +246,7 @@
     <div class="kk-head">
       <div class="kk-sum" id="kkSummary"></div>
       <div class="toolbar" style="margin:0">
+        <span id="kkFilters" style="display:flex;gap:8px;flex-wrap:wrap">
         <select id="kkBucket" onchange="renderKoekake()">
           <option value="all">期限: 全て</option>
           <option value="today">今日〜3日以内</option>
@@ -251,6 +255,7 @@
         </select>
         <select id="kkPurpose" onchange="renderKoekake()"><option value="">目的: 全て</option></select>
         <select id="kkType" onchange="renderKoekake()"><option value="">介入: 全て</option></select>
+        </span>
         <button class="kk-btn ghost" onclick="toggleCampaignForm()">＋ きっかけ（募集・開催・ローンチ）を登録</button>
         <button class="kk-btn ghost" onclick="loadKoekake(true)">↻ 更新</button>
       </div>
@@ -269,11 +274,11 @@
       </div>
       <div id="cfList" style="font-size:12px;color:var(--gray);margin-top:6px;"></div>
     </div>
-    <div class="kk-section"><h3>今やる声かけ <span id="kkCountList"></span></h3>
+    <div class="kk-section" id="kkListSec"><h3>今やる声かけ <span id="kkCountList"></span></h3>
       <div class="kk-help">開くたびに台帳から計算し直しています。1人につき最優先の1件だけ表示。対応を記録すると翌日から消えます（介入ごとの再表示間隔あり）。オファー系は「声かけした→結果待ち」の2段階、御礼・様子伺い・ヒアリング系は「済み」で完了。</div>
       <div class="plist" id="kkList"></div></div>
-    <div class="kk-section"><h3>声かけ済み・結果待ち <span id="kkCountOpen"></span></h3><div class="plist" id="kkOpen"></div></div>
-    <div class="kk-section"><h3>今月の記録 <span id="kkCountDone"></span></h3><div class="plist" id="kkDone"></div></div>
+    <div class="kk-section" id="kkOpenSec"><h3>声かけ済み・結果待ち <span id="kkCountOpen"></span></h3><div class="kk-help">返事が来たら結果を押す。自動では消えません。7日で橙、14日で赤になります。</div><div class="plist" id="kkOpen"></div></div>
+    <div class="kk-section" id="kkDoneSec"><h3>今月の記録 <span id="kkCountDone"></span></h3><div class="plist" id="kkDone"></div></div>
   </div>
 </main>
 
@@ -1313,7 +1318,7 @@ function renderAnalytics(){
     <table>${stRows}</table></div>`;
 }
 // ===================== 声かけ（介入リマインド） =====================
-const kk={list:[],open:[],done:[],types:[],campaigns:[],loaded:false,error:null};
+const kk={list:[],open:[],done:[],types:[],campaigns:[],loaded:false,error:null,mode:'list'};
 const KK_STATUS={pending:'未対応',contacted:'声かけ済',done:'済み',won:'成約・参加',passed:'見送り（先方）',no_response:'反応なし',skip:'今回は対象外'};
 // 相手の反応（成約/見送り）を問わない介入：御礼・定期タッチ・様子伺い・ヒアリング・告知
 const KK_NO_OUTCOME=new Set(['C1','C2','B5','D1','F1','F2','E1','E2','E3']);
@@ -1347,6 +1352,7 @@ async function loadKoekake(force){
   renderCampaignList();
   renderKoekake();
 }
+function kkJump(where){ kk.mode=where; renderKoekake(); }
 function kkTypeName(itype){const t=kk.types.find(x=>x.itype===itype);return t?t.name:itype;}
 function kkPerson(id){return persons.find(p=>p.id===id);}
 function renderKoekake(){
@@ -1356,9 +1362,15 @@ function renderKoekake(){
   const inBucket=r=>{const n=kkDays(r.due_by); if(bucket==='today')return n<=3; if(bucket==='week')return n<=7; if(bucket==='month')return n>7; return true;};
   const rows=kk.list.filter(r=>inBucket(r)&&(!purpose||r.purpose===purpose)&&(!itype||r.itype===itype));
   // summary tiles
-  const nToday=kk.list.filter(r=>kkDays(r.due_by)<=3).length, nWeek=kk.list.filter(r=>kkDays(r.due_by)<=7).length;
+  const on=(m,b)=>(kk.mode===m&&(!b||bucket===b))?' on':'';
   document.getElementById('kkSummary').innerHTML=
-    `<div class="tile"><b>${nToday}</b><span>今日〜3日以内</span></div><div class="tile"><b>${nWeek}</b><span>今週（7日以内）</span></div><div class="tile"><b>${kk.list.length}</b><span>今月の声かけ（全体）</span></div><div class="tile"><b>${kk.open.length}</b><span>結果待ち</span></div>`;
+    `<div class="tile${on('list')}" onclick="kkJump('list')"><b>${kk.list.length}</b><span>声かけする人</span></div>`+
+    `<div class="tile${on('open')}" onclick="kkJump('open')"><b>${kk.open.length}</b><span>結果待ち</span></div>`+
+    `<div class="tile${on('done')}" onclick="kkJump('done')"><b>${kk.done.length}</b><span>今月の記録</span></div>`;
+  document.getElementById('kkListSec').style.display=kk.mode==='list'?'block':'none';
+  document.getElementById('kkOpenSec').style.display=kk.mode==='open'?'block':'none';
+  document.getElementById('kkDoneSec').style.display=kk.mode==='done'?'block':'none';
+  document.getElementById('kkFilters').style.visibility=kk.mode==='list'?'visible':'hidden';
   document.getElementById('kkCountList').textContent=`${rows.length}人`;
   document.getElementById('kkCountOpen').textContent=`${kk.open.length}件`;
   document.getElementById('kkCountDone').textContent=`${kk.done.length}件`;
@@ -1393,13 +1405,15 @@ function renderKoekake(){
   const ob=document.getElementById('kkOpen'); ob.innerHTML='';
   if(!kk.open.length)ob.innerHTML='<div class="kk-empty">結果待ちはありません。</div>';
   kk.open.forEach(i=>{
-    const div=document.createElement('div');div.className='kkrow';
+    const waited=-kkDays(i.acted_at||i.triggered_at);
+    const div=document.createElement('div');div.className='kkrow'+(waited>=14?' overdue':(waited>=7?' soon':''));
+    const waitTxt=waited>=14?`<b>${waited}日</b> 返事待ち — 追いかけるか「反応なし」で締める`:(waited>=7?`<b>${waited}日</b> 返事待ち`:`${waited}日 経過`);
     div.innerHTML=`<div>
         <div class="nm" onclick="openDetail(${i.person_id})">${i.name}</div>
         <div class="reason"><span class="ibadge st-${i.status}">${KK_STATUS[i.status]||i.status}</span><span class="ibadge">${i.itype} ${i.intervention}</span>${i.note||''}</div>
         <div class="sub">声かけ日 ${i.acted_at||i.triggered_at}${i.added_by?' ・ '+i.added_by.split('@')[0]:''}</div>
       </div>
-      <div class="acts"><div class="btns">
+      <div class="acts"><div class="due">${waitTxt}</div><div class="btns">
         <button class="g" onclick="kkUpdate(${i.id},'won')">成約・参加</button>
         <button onclick="kkUpdate(${i.id},'passed')">見送られた</button>
         <button onclick="kkUpdate(${i.id},'no_response')">反応なし</button>
