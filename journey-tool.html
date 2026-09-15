@@ -1444,7 +1444,7 @@ function renderKoekake(){
     `<div class="tile${on('list')}" onclick="kkJump('list')"><b>${kk.list.length}</b><span>声かけする人</span></div>`+
     `<div class="tile${on('open')}" onclick="kkJump('open')"><b>${kk.open.length}</b><span>結果待ち</span></div>`+
     `<div class="tile${on('done')}" onclick="kkJump('done')"><b>${kk.done.length}</b><span>今月の記録</span></div>`+
-    `<div class="tile${on('event')}" onclick="kkJump('event')"><b>${evCampaigns().length}</b><span>イベント声かけ</span></div>`;
+    `<div class="tile${on('event')}" onclick="kkJump('event')"><b>${evCurrent()?evTargets().length:0}</b><span>イベント声かけの対象者${evCurrent()?'（'+esc(evCurrent().name)+'）':''}</span></div>`;
   document.getElementById('kkListSec').style.display=kk.mode==='list'?'block':'none';
   document.getElementById('kkOpenSec').style.display=kk.mode==='open'?'block':'none';
   document.getElementById('kkDoneSec').style.display=kk.mode==='done'?'block':'none';
