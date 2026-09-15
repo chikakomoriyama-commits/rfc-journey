@@ -225,6 +225,12 @@
     <div class="toolbar" id="chips"></div>
     <div class="toolbar" id="triggerChips"></div>
     <div class="toolbar" id="tagFilterChips"></div>
+    <div class="toolbar" id="selBar" style="align-items:center;">
+      <button onclick="selectAllFiltered()" style="padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;font-size:12.5px;">表示中の全員を選択</button>
+      <button onclick="clearSelection()" style="padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;font-size:12.5px;">選択解除</button>
+      <span style="font-size:12.5px;color:var(--gray);">選択中: <b id="selCount">0</b>人</span>
+      <button onclick="bulkTag()" style="padding:7px 16px;border:0;border-radius:999px;background:var(--accent);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;">選択した人にタグを付与</button>
+    </div>
     <div class="plist" id="list"></div>
   </div>
 
@@ -463,6 +469,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_n2qWIOJzVfrzjYANDe4UzA_O4dLVmZ1";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let persons=[], tpsByPerson={}, current=null, filtered=[];
 let routeFilter="", triggerFilter="", tagFilter="", userEmail="", jpFirst=true, showInternal=false;
+let selectedIds=new Set();
 let initiatives=[], corps=[], currentCorp=null, corpEvents={}, curTab='list';
 
 async function signIn(){ await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href}}); }
@@ -593,11 +600,44 @@ function render(){
     const upd=p.updated_by?`<span class="upd">${fmtDate(p.updated_at)} ${p.updated_by.split('@')[0]}</span>`:'';
     const compSub=p.company?` ・ ${p.company}`:'';
     const tagSub=(p.tags||'').split(',').map(x=>x.trim()).filter(Boolean).map(t=>`<span class="listtag">${t}</span>`).join('');
-    div.innerHTML=`<div><div class="nm">${p.name}</div><div class="sub">${p.first_year||'?'}〜${p.last_year||'?'} ・ ${tp.length}接点${compSub} ・ ${p.email||'email不明'}</div></div>
+    div.innerHTML=`<div style="display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" class="rowchk" onclick="event.stopPropagation()" onchange="toggleSelect(${p.id},this.checked)" ${selectedIds.has(p.id)?'checked':''} style="width:16px;height:16px;accent-color:var(--accent);flex:0 0 auto;">
+      <div><div class="nm">${p.name}</div><div class="sub">${p.first_year||'?'}〜${p.last_year||'?'} ・ ${tp.length}接点${compSub} ・ ${p.email||'email不明'}</div></div>
+      </div>
       <div class="rightcol"><span class="badge ${rsClass}">${rs}</span>${stBadge}<div>${tagSub}</div>${upd}</div>`;
     div.onclick=()=>openDetail(p.id);
     list.appendChild(div);
   });
+  updateSelectionBar();
+}
+function toggleSelect(id,checked){ if(checked)selectedIds.add(id); else selectedIds.delete(id); updateSelectionBar(); }
+function updateSelectionBar(){ const el=document.getElementById('selCount'); if(el)el.textContent=selectedIds.size; }
+function selectAllFiltered(){ filtered.forEach(p=>selectedIds.add(p.id)); render(); }
+function clearSelection(){ selectedIds.clear(); render(); }
+async function bulkTag(){
+  if(selectedIds.size===0){ alert('先に対象者を選択してください（「表示中の全員を選択」ボタンが使えます）。'); return; }
+  const name=prompt(`選択中の${selectedIds.size}人に付けるタグ名（イベント系は年を付けると便利: 例 クリスマス2026）`);
+  if(!name)return;
+  const nm=name.trim();
+  if(!nm)return;
+  const similar=allTags().find(t=>t.replace(/[0-9]/g,'')===nm.replace(/[0-9]/g,'')&&t!==nm);
+  if(similar && !confirm(`似たタグ「${similar}」があります。それでも「${nm}」を新規作成しますか？\n（キャンセルして既存タグ名で入力し直すことをおすすめします）`))return;
+  if(!confirm(`「${nm}」というタグを${selectedIds.size}人に付与します。よろしいですか？`))return;
+  const ids=[...selectedIds];
+  const results=await Promise.all(ids.map(async id=>{
+    const p=persons.find(x=>x.id===id);
+    if(!p)return {id,error:'not found'};
+    const arr=(p.tags||'').split(',').map(x=>x.trim()).filter(Boolean);
+    if(!arr.includes(nm))arr.push(nm);
+    const newTags=arr.join(', ');
+    const {error}=await sb.from('persons').update({tags:newTags,updated_by:userEmail,updated_at:new Date().toISOString()}).eq('id',id);
+    if(!error)p.tags=newTags;
+    return {id,error};
+  }));
+  const failed=results.filter(r=>r.error);
+  buildChips(); clearSelection();
+  if(failed.length)alert(`${ids.length-failed.length}人に付与しました。${failed.length}人は失敗しました。`);
+  else alert(`${ids.length}人に「${nm}」タグを付与しました。`);
 }
 
 function openDetail(id){
