@@ -84,8 +84,8 @@
   .ev-add{display:flex;gap:8px;align-items:center;margin:0 0 12px;}
   .ev-add input{padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;flex:1;min-width:200px;background:#fff;}
   .ev-add button{padding:8px 14px;border-radius:999px;border:1px solid var(--accent);background:#fff;color:var(--accent);font-size:12.5px;cursor:pointer;white-space:nowrap;}
-  .kkrow .rm{font-size:11px;color:var(--gray);cursor:pointer;margin-left:8px;}
-  .kkrow .rm:hover{color:#a33;}
+  .kkrow .rmbtn{font-size:11px;color:var(--gray);background:#fff;border:1px solid var(--line);border-radius:999px;padding:2px 9px;cursor:pointer;margin-left:10px;vertical-align:middle;font-weight:400;}
+  .kkrow .rmbtn:hover{color:#a33;border-color:#a33;}
   .kkrow .memo{font-size:12.5px;color:var(--ink);margin-top:4px;white-space:pre-wrap;}
   .kkrow .acts input.evnote{width:260px;}
   .ihist{border-left:3px solid var(--amber);margin:4px 0 12px;padding-left:16px;font-size:12.5px;display:flex;flex-direction:column;gap:5px;}
@@ -300,7 +300,7 @@
     <div class="kk-section" id="kkDoneSec"><h3>今月の記録 <span id="kkCountDone"></span></h3><div class="plist" id="kkDone"></div></div>
     <div class="kk-section" id="kkEventSec">
       <h3>イベント声かけ <span id="kkCountEvent"></span></h3>
-      <div class="kk-help">名簿でイベント用のタグを付けた人が対象者になります。声かけしたらメモを添えて「声かけした」、返事が来たら 参加／不参加／反応なし を押す。ここに記録した内容は「今月の記録」や各人の詳細にも残ります。</div>
+      <div class="kk-help">名簿でイベント用のタグを付けた人が対象者になります。声かけしたらメモを添えて「声かけした」、返事が来たら 参加／不参加／反応なし を押す。声をかけない人は「声かけしない」（記録が残る）か「リストから外す」（タグを外してリストから消す）。ここに記録した内容は「今月の記録」や各人の詳細にも残ります。</div>
       <div class="ev-bar">
         <select id="evSelect" onchange="evSelectChange()"></select>
         <button class="kk-btn ghost" onclick="toggleEventForm()">＋ イベントを登録</button>
@@ -1572,8 +1572,8 @@ async function loadPersonInterventions(pid){
 // ===================== イベント声かけ（タグで対象者を決め、声かけ状況を1画面で管理） =====================
 // interventions に campaign_id 列を使います。無い場合は画面に SQL を表示します。
 const EV_SQL='alter table interventions add column if not exists campaign_id bigint;\ncreate index if not exists interventions_campaign_id_idx on interventions(campaign_id);';
-const EV_STATUS={contacted:'声かけ済・返事待ち',won:'参加',passed:'不参加',no_response:'反応なし',skip:'対象外',none:'未声かけ'};
-const EV_FILTERS=[['all','全員'],['none','未声かけ'],['contacted','声かけ済・返事待ち'],['won','参加'],['passed','不参加'],['no_response','反応なし'],['skip','対象外']];
+const EV_STATUS={contacted:'声かけ済・返事待ち',won:'参加',passed:'不参加',no_response:'反応なし',skip:'今回は声かけしない',none:'未声かけ'};
+const EV_FILTERS=[['all','全員'],['none','未声かけ'],['contacted','声かけ済・返事待ち'],['won','参加'],['passed','不参加'],['no_response','反応なし'],['skip','声かけしない']];
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function evCampaigns(){return kk.campaigns.filter(c=>c.target_tag).slice().sort((a,b)=>String(b.event_date||'').localeCompare(String(a.event_date||'')));}
 function evCurrent(){return kk.campaigns.find(c=>c.id===kk.ev.id)||null;}
@@ -1646,7 +1646,7 @@ async function delEvent(){
   kk.ev.id=null; kk.ev.loaded=false; await loadKoekake(true);
 }
 function evFilterRows(){
-  const f=kk.ev.filter; return evTargets().filter(p=>f==='all'||evStatusOf(p.id)===f);
+  const f=kk.ev.filter; return evTargets().filter(p=>f==='all'?evStatusOf(p.id)!=='skip':evStatusOf(p.id)===f);
 }
 function renderEvent(){
   const body=document.getElementById('evBody'); const c=evCurrent();
@@ -1658,7 +1658,7 @@ function renderEvent(){
     return;
   }
   const targets=evTargets();
-  const cnt={all:targets.length}; EV_FILTERS.slice(1).forEach(([k])=>cnt[k]=targets.filter(p=>evStatusOf(p.id)===k).length);
+  const cnt={all:targets.filter(p=>evStatusOf(p.id)!=='skip').length}; EV_FILTERS.slice(1).forEach(([k])=>cnt[k]=targets.filter(p=>evStatusOf(p.id)===k).length);
   const contactedAll=targets.length-cnt.none-cnt.skip;
   const rows=evFilterRows();
   let html=`<div class="ev-meta"><span>開催日 <b>${esc(c.event_date||'—')}</b></span><span>対象タグ <span class="ibadge">${esc(c.target_tag)}</span></span><span>声かけ済 <b>${contactedAll}</b> / 対象 <b>${targets.length-cnt.skip}</b> 人（参加 ${cnt.won}）</span><span class="del" onclick="delEvent()">このイベントを削除</span></div>`;
@@ -1684,7 +1684,7 @@ function renderEvent(){
       btns=`<input id="evnote-${p.id}" class="evnote" placeholder="声かけメモ (任意: 手段・反応など)">
         <div class="btns"><button class="p" onclick="evRecord(${p.id},'contacted')">声かけした</button>
         <button class="g" onclick="evRecord(${p.id},'won')">参加</button>
-        <button onclick="evRecord(${p.id},'skip')">対象外</button></div>`;
+        <button onclick="evRecord(${p.id},'skip')" title="対象のままにして、今回は声をかけない記録を残す">声かけしない</button></div>`;
     }else{
       btns=`<input id="evnote-${p.id}" class="evnote" value="${esc(r.note||'')}" placeholder="メモ (変更すると保存)" onchange="evNote(${r.id},${p.id})">`;
       if(st==='contacted'){
@@ -1698,7 +1698,7 @@ function renderEvent(){
       }
     }
     div.innerHTML=`<div>
-        <div class="nm" onclick="openDetail(${p.id})">${esc(p.name)}<span class="rm" onclick="event.stopPropagation();evRemovePerson(${p.id})" title="このイベントの対象から外す（タグを外します）">対象から外す</span></div>
+        <div class="nm" onclick="openDetail(${p.id})">${esc(p.name)}<button class="rmbtn" onclick="event.stopPropagation();evRemovePerson(${p.id})" title="リストから消します（タグを外す）。最初から対象でなかった人向け">リストから外す</button></div>
         <div class="sub">${esc(p.email||'email不明')}${p.company?' ・ '+esc(p.company):''}${p.stage||p.standing?' ・ '+[p.stage,p.standing].filter(Boolean).map(esc).join(' × '):''}</div>
         <div class="reason"><span class="ibadge st-${st}">${EV_STATUS[st]}</span>${when?`<span class="sub" style="display:inline">${esc(when)}</span>`:''}</div>
       </div>
