@@ -75,6 +75,19 @@
   .ibadge.st-contacted{background:#fdf3dd;color:var(--amber);}
   .ibadge.st-won,.ibadge.st-done{background:#e7f3ec;color:var(--green);}
   .ibadge.st-passed,.ibadge.st-no_response,.ibadge.st-skip{background:#eee9e0;color:var(--gray);}
+  .ibadge.st-none{background:#fff;color:var(--gray);border:1px dashed var(--line);}
+  .ev-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+  .ev-bar select{padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:#fff;min-width:220px;max-width:100%;}
+  .ev-meta{font-size:12px;color:var(--gray);margin:0 0 10px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+  .ev-meta .del{color:#a33;cursor:pointer;}
+  .ev-chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px;}
+  .ev-add{display:flex;gap:8px;align-items:center;margin:0 0 12px;}
+  .ev-add input{padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;flex:1;min-width:200px;background:#fff;}
+  .ev-add button{padding:8px 14px;border-radius:999px;border:1px solid var(--accent);background:#fff;color:var(--accent);font-size:12.5px;cursor:pointer;white-space:nowrap;}
+  .kkrow .rm{font-size:11px;color:var(--gray);cursor:pointer;margin-left:8px;}
+  .kkrow .rm:hover{color:#a33;}
+  .kkrow .memo{font-size:12.5px;color:var(--ink);margin-top:4px;white-space:pre-wrap;}
+  .kkrow .acts input.evnote{width:260px;}
   .ihist{border-left:3px solid var(--amber);margin:4px 0 12px;padding-left:16px;font-size:12.5px;display:flex;flex-direction:column;gap:5px;}
   .ihist .ttl{font-size:12px;font-weight:700;color:var(--amber);}
   #detail,#cdetail{position:fixed;inset:0;background:rgba(26,20,16,.5);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:28px 12px;z-index:20;}
@@ -285,6 +298,28 @@
       <div class="plist" id="kkList"></div></div>
     <div class="kk-section" id="kkOpenSec"><h3>声かけ済み・結果待ち <span id="kkCountOpen"></span></h3><div class="kk-help">返事が来たら結果を押す。自動では消えません。7日で橙、14日で赤になります。</div><div class="plist" id="kkOpen"></div></div>
     <div class="kk-section" id="kkDoneSec"><h3>今月の記録 <span id="kkCountDone"></span></h3><div class="plist" id="kkDone"></div></div>
+    <div class="kk-section" id="kkEventSec">
+      <h3>イベント声かけ <span id="kkCountEvent"></span></h3>
+      <div class="kk-help">名簿でイベント用のタグを付けた人が対象者になります。声かけしたらメモを添えて「声かけした」、返事が来たら 参加／不参加／反応なし を押す。ここに記録した内容は「今月の記録」や各人の詳細にも残ります。</div>
+      <div class="ev-bar">
+        <select id="evSelect" onchange="evSelectChange()"></select>
+        <button class="kk-btn ghost" onclick="toggleEventForm()">＋ イベントを登録</button>
+        <button class="kk-btn ghost" onclick="evCopy()" title="表示中の一覧をテキストとしてコピー">一覧をコピー</button>
+      </div>
+      <div class="tpform" id="eventForm">
+        <div style="font-size:12px;color:var(--gray);margin-bottom:8px;">イベント名・開催日・対象タグを登録します。対象タグは名簿タブで付けたタグから選びます（先に名簿で対象者にタグを付けておくと楽です）。</div>
+        <div class="row">
+          <input id="evfName" placeholder="イベント名 (例: クリスマス会 2026)">
+          <input id="evfDate" type="date" style="max-width:170px" title="開催日">
+        </div>
+        <div class="row">
+          <input id="evfTag" list="evfTagList" placeholder="対象タグ (例: クリスマス2026)">
+          <datalist id="evfTagList"></datalist>
+          <button onclick="addEvent()">登録</button>
+        </div>
+      </div>
+      <div id="evBody"></div>
+    </div>
   </div>
 </main>
 
@@ -1358,7 +1393,7 @@ function renderAnalytics(){
     <table>${stRows}</table></div>`;
 }
 // ===================== 声かけ（介入リマインド） =====================
-const kk={list:[],open:[],done:[],types:[],campaigns:[],loaded:false,error:null,mode:'list'};
+const kk={list:[],open:[],done:[],types:[],campaigns:[],loaded:false,error:null,mode:'list',ev:{id:null,rows:[],filter:'all',loaded:false,error:null}};
 const KK_STATUS={pending:'未対応',contacted:'声かけ済',done:'済み',won:'成約・参加',passed:'見送り（先方）',no_response:'反応なし',skip:'今回は対象外'};
 // 相手の反応（成約/見送り）を問わない介入：御礼・定期タッチ・様子伺い・ヒアリング・告知
 const KK_NO_OUTCOME=new Set(['C1','C2','B5','D1','F1','F2','E1','E2','E3']);
@@ -1390,9 +1425,11 @@ async function loadKoekake(force){
   const cf=document.getElementById('cfType'); cf.innerHTML='';
   kk.types.filter(x=>['A2','A3','B3','A4','E1','E2'].includes(x.itype)).forEach(x=>{const o=document.createElement('option');o.value=x.itype;o.textContent=`${x.itype} ${x.name}`;cf.appendChild(o);});
   renderCampaignList();
+  renderEventSelect();
+  if(kk.mode==='event'&&kk.ev.id){ await loadEvent(true); return; }
   renderKoekake();
 }
-function kkJump(where){ kk.mode=where; renderKoekake(); }
+function kkJump(where){ kk.mode=where; if(where==='event'){ if(kk.ev.id&&!kk.ev.loaded){loadEvent(true);return;} } renderKoekake(); }
 function kkTypeName(itype){const t=kk.types.find(x=>x.itype===itype);return t?t.name:itype;}
 function kkPerson(id){return persons.find(p=>p.id===id);}
 function renderKoekake(){
@@ -1406,11 +1443,14 @@ function renderKoekake(){
   document.getElementById('kkSummary').innerHTML=
     `<div class="tile${on('list')}" onclick="kkJump('list')"><b>${kk.list.length}</b><span>声かけする人</span></div>`+
     `<div class="tile${on('open')}" onclick="kkJump('open')"><b>${kk.open.length}</b><span>結果待ち</span></div>`+
-    `<div class="tile${on('done')}" onclick="kkJump('done')"><b>${kk.done.length}</b><span>今月の記録</span></div>`;
+    `<div class="tile${on('done')}" onclick="kkJump('done')"><b>${kk.done.length}</b><span>今月の記録</span></div>`+
+    `<div class="tile${on('event')}" onclick="kkJump('event')"><b>${evCampaigns().length}</b><span>イベント声かけ</span></div>`;
   document.getElementById('kkListSec').style.display=kk.mode==='list'?'block':'none';
   document.getElementById('kkOpenSec').style.display=kk.mode==='open'?'block':'none';
   document.getElementById('kkDoneSec').style.display=kk.mode==='done'?'block':'none';
+  document.getElementById('kkEventSec').style.display=kk.mode==='event'?'block':'none';
   document.getElementById('kkFilters').style.visibility=kk.mode==='list'?'visible':'hidden';
+  if(kk.mode==='event')renderEvent();
   document.getElementById('kkCountList').textContent=`${rows.length}人`;
   document.getElementById('kkCountOpen').textContent=`${kk.open.length}件`;
   document.getElementById('kkCountDone').textContent=`${kk.done.length}件`;
@@ -1526,7 +1566,203 @@ async function loadPersonInterventions(pid){
   if(error||!data||!data.length)return;
   if(!kk.types.length){const t=await sb.from('intervention_types').select('*');kk.types=t.data||[];}
   el.style.display='flex';
-  el.innerHTML='<div class="ttl">介入（声かけ）の記録</div>'+data.map(i=>`<div><span class="yr" style="color:var(--amber);font-weight:700;margin-right:8px">${i.acted_at||i.triggered_at}</span><span class="ibadge st-${i.status}">${KK_STATUS[i.status]||i.status}</span>${i.itype} ${kkTypeName(i.itype)}${i.note?` <span style="color:var(--gray)">— ${i.note}</span>`:''}${i.added_by?` <span class="manual">(${i.added_by.split('@')[0]})</span>`:''}</div>`).join('');
+  el.innerHTML='<div class="ttl">介入（声かけ）の記録</div>'+data.map(i=>`<div><span class="yr" style="color:var(--amber);font-weight:700;margin-right:8px">${i.acted_at||i.triggered_at}</span><span class="ibadge st-${i.status}">${KK_STATUS[i.status]||i.status}</span>${i.itype} ${kkTypeName(i.itype)}${i.campaign_id?`<span class="ibadge">${evName(i.campaign_id)}</span>`:''}${i.note?` <span style="color:var(--gray)">— ${i.note}</span>`:''}${i.added_by?` <span class="manual">(${i.added_by.split('@')[0]})</span>`:''}</div>`).join('');
+}
+
+// ===================== イベント声かけ（タグで対象者を決め、声かけ状況を1画面で管理） =====================
+// interventions に campaign_id 列を使います。無い場合は画面に SQL を表示します。
+const EV_SQL='alter table interventions add column if not exists campaign_id bigint;\ncreate index if not exists interventions_campaign_id_idx on interventions(campaign_id);';
+const EV_STATUS={contacted:'声かけ済・返事待ち',won:'参加',passed:'不参加',no_response:'反応なし',skip:'対象外',none:'未声かけ'};
+const EV_FILTERS=[['all','全員'],['none','未声かけ'],['contacted','声かけ済・返事待ち'],['won','参加'],['passed','不参加'],['no_response','反応なし'],['skip','対象外']];
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function evCampaigns(){return kk.campaigns.filter(c=>c.target_tag).slice().sort((a,b)=>String(b.event_date||'').localeCompare(String(a.event_date||'')));}
+function evCurrent(){return kk.campaigns.find(c=>c.id===kk.ev.id)||null;}
+function evName(cid){const c=kk.campaigns.find(x=>x.id===cid);return c?c.name:'#'+cid;}
+function personTags(p){return (p.tags||'').split(',').map(x=>x.trim()).filter(Boolean);}
+function evTargets(){const c=evCurrent();if(!c)return[];return persons.filter(p=>personTags(p).includes(c.target_tag)).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ja'));}
+function evRowOf(pid){return kk.ev.rows.find(r=>r.person_id===pid)||null;} // rows は id 降順なので最初が最新
+function evStatusOf(pid){const r=evRowOf(pid);return r?r.status:'none';}
+function renderEventSelect(){
+  const sel=document.getElementById('evSelect'); const evs=evCampaigns();
+  sel.innerHTML=evs.length?evs.map(c=>`<option value="${c.id}">${esc(c.name)}（${c.event_date||'日付なし'}・タグ ${esc(c.target_tag)}）</option>`).join(''):'<option value="">イベントはまだありません</option>';
+  if(!evs.find(c=>c.id===kk.ev.id)){ kk.ev.id=evs.length?evs[0].id:null; kk.ev.loaded=false; kk.ev.rows=[]; }
+  if(kk.ev.id)sel.value=String(kk.ev.id);
+  const dl=document.getElementById('evfTagList'); const tags=new Set(); persons.forEach(p=>personTags(p).forEach(t=>tags.add(t)));
+  dl.innerHTML=[...tags].sort((a,b)=>a.localeCompare(b,'ja')).map(t=>`<option value="${esc(t)}">`).join('');
+}
+function evSelectChange(){ const v=document.getElementById('evSelect').value; kk.ev.id=v?Number(v):null; kk.ev.filter='all'; loadEvent(true); }
+async function loadEvent(force){
+  if(!kk.ev.id){kk.ev.rows=[];kk.ev.loaded=true;renderKoekake();return;}
+  if(kk.ev.loaded&&!force){renderKoekake();return;}
+  const {data,error}=await sb.from('interventions').select('*').eq('campaign_id',kk.ev.id).order('id',{ascending:false});
+  if(error){ kk.ev.error=error.message; kk.ev.rows=[]; kk.ev.loaded=true; renderKoekake(); return; }
+  kk.ev.error=null; kk.ev.rows=data||[]; kk.ev.orphans=[];
+  // 「きっかけ登録」→「今やる声かけ」から記録した分（campaign_id が空）も、このイベントの記録として拾う
+  const c=evCurrent();
+  if(c&&c.itype&&c.event_date){
+    const lo=new Date(c.event_date); lo.setDate(lo.getDate()-120);
+    const hi=new Date(c.event_date); hi.setDate(hi.getDate()+(c.window_days||30));
+    const f=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const ids=new Set(evTargets().map(p=>p.id));
+    const o=await sb.from('interventions').select('*').is('campaign_id',null).eq('itype',c.itype).gte('triggered_at',f(lo)).lte('triggered_at',f(hi)).order('id',{ascending:false});
+    if(!o.error&&o.data){ kk.ev.orphans=o.data.filter(r=>ids.has(r.person_id)); kk.ev.rows=kk.ev.rows.concat(kk.ev.orphans).sort((a,b)=>b.id-a.id); }
+  }
+  kk.ev.loaded=true; renderKoekake();
+}
+async function evLinkOrphans(){
+  const c=evCurrent(); const ids=(kk.ev.orphans||[]).map(r=>r.id); if(!c||!ids.length)return;
+  const {error}=await sb.from('interventions').update({campaign_id:c.id,updated_at:new Date().toISOString()}).in('id',ids);
+  if(error){alert('紐づけできませんでした: '+error.message);return;}
+  await loadEvent(true);
+}
+function toggleEventForm(){document.getElementById('eventForm').classList.toggle('open');}
+// イベント声かけ用の介入種別 "EV"。A1〜F2 の既存の種類とは独立させる。無ければ作る（作れなければ既存の種類で代用）。
+async function evEnsureType(){
+  if(kk.types.find(x=>x.itype==='EV'))return 'EV';
+  const {error}=await sb.from('intervention_types').insert({itype:'EV',name:'イベント声かけ',purpose:'イベント',priority:99});
+  if(!error){ const t=await sb.from('intervention_types').select('*').order('priority'); kk.types=t.data||kk.types; return 'EV'; }
+  console.warn('EV 種別を作れませんでした。既存の種類で代用します:',error.message);
+  const alt=kk.types.find(x=>x.itype==='E1')||kk.types[0]; return alt?alt.itype:null;
+}
+async function addEvent(){
+  const name=document.getElementById('evfName').value.trim(), date=document.getElementById('evfDate').value;
+  const tag=document.getElementById('evfTag').value.trim();
+  if(!name||!date||!tag){alert('イベント名・開催日・対象タグを入力してください');return;}
+  const itype=await evEnsureType();
+  const code=`ev_${date.replace(/-/g,'')}_${Math.random().toString(36).slice(2,6)}`;
+  const {data,error}=await sb.from('campaigns').insert({code,name,event_date:date,window_days:30,target_tag:tag,itype}).select();
+  if(error){alert('登録できませんでした: '+error.message);return;}
+  document.getElementById('evfName').value='';document.getElementById('evfTag').value='';
+  document.getElementById('eventForm').classList.remove('open');
+  if(data&&data[0])kk.ev.id=data[0].id;
+  kk.mode='event'; kk.ev.loaded=false;
+  await loadKoekake(true);
+}
+async function delEvent(){
+  const c=evCurrent(); if(!c)return;
+  if(!confirm(`「${c.name}」を削除しますか？（声かけの記録は残りますが、この画面からは見えなくなります）`))return;
+  const {error}=await sb.from('campaigns').delete().eq('id',c.id);
+  if(error){alert(error.message);return;}
+  kk.ev.id=null; kk.ev.loaded=false; await loadKoekake(true);
+}
+function evFilterRows(){
+  const f=kk.ev.filter; return evTargets().filter(p=>f==='all'||evStatusOf(p.id)===f);
+}
+function renderEvent(){
+  const body=document.getElementById('evBody'); const c=evCurrent();
+  document.getElementById('kkCountEvent').textContent=c?`${evTargets().length}人`:'';
+  if(!c){ body.innerHTML='<div class="kk-empty">イベントがまだありません。「＋ イベントを登録」で イベント名・開催日・対象タグ を登録すると、そのタグが付いた人が対象者として並びます。<br>タグは名簿タブで（複数選択→タグを付与）付けられます。</div>'; return; }
+  if(kk.ev.error){
+    const needCol=/campaign_id/.test(kk.ev.error);
+    body.innerHTML=`<div class="kk-empty">${needCol?'イベント声かけ用の列がまだありません。Supabase の SQL Editor で次を実行してください（1回だけ）。':'読み込めませんでした: '+esc(kk.ev.error)}<br>${needCol?`<pre style="margin-top:8px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;white-space:pre-wrap">${esc(EV_SQL)}</pre>`:''}<button class="kk-btn ghost" style="margin-top:8px" onclick="loadEvent(true)">↻ もう一度読み込む</button></div>`;
+    return;
+  }
+  const targets=evTargets();
+  const cnt={all:targets.length}; EV_FILTERS.slice(1).forEach(([k])=>cnt[k]=targets.filter(p=>evStatusOf(p.id)===k).length);
+  const contactedAll=targets.length-cnt.none-cnt.skip;
+  const rows=evFilterRows();
+  let html=`<div class="ev-meta"><span>開催日 <b>${esc(c.event_date||'—')}</b></span><span>対象タグ <span class="ibadge">${esc(c.target_tag)}</span></span><span>声かけ済 <b>${contactedAll}</b> / 対象 <b>${targets.length-cnt.skip}</b> 人（参加 ${cnt.won}）</span><span class="del" onclick="delEvent()">このイベントを削除</span></div>`;
+  if(kk.ev.orphans&&kk.ev.orphans.length){
+    html+=`<div class="kk-empty" style="margin-bottom:10px;border-style:solid;border-color:var(--amber)">「今やる声かけ」から記録した <b>${kk.ev.orphans.length}件</b> の記録がこのイベントのものと思われます（下の一覧にも表示しています）。<button class="kk-btn ghost" style="margin-left:10px;padding:6px 12px" onclick="evLinkOrphans()">このイベントに紐づける</button></div>`;
+  }
+  html+=`<div class="ev-chips">${EV_FILTERS.map(([k,l])=>`<span class="chip${kk.ev.filter===k?' on':''}" onclick="kk.ev.filter='${k}';renderEvent()">${l} ${cnt[k]}</span>`).join('')}</div>`;
+  html+=`<div class="ev-add"><input id="evAddName" list="evAddList" placeholder="対象に追加: 名前かメールで検索して Enter" onkeydown="if(event.key==='Enter')evAddPerson()"><datalist id="evAddList"></datalist><button onclick="evAddPerson()">＋ 対象に追加</button></div>`;
+  html+='<div class="plist" id="evList"></div>';
+  body.innerHTML=html;
+  // 追加候補（対象外の人）
+  const tset=new Set(targets.map(p=>p.id));
+  document.getElementById('evAddList').innerHTML=persons.filter(p=>!tset.has(p.id)).map(p=>`<option value="${esc(p.name)}${p.email?' <'+esc(p.email)+'>':''}">`).join('');
+  const list=document.getElementById('evList');
+  if(!targets.length){list.innerHTML=`<div class="kk-empty">タグ「${esc(c.target_tag)}」が付いた人がまだいません。名簿タブで対象者を選んでタグを付けるか、上の「対象に追加」で1人ずつ追加してください。</div>`;return;}
+  if(!rows.length){list.innerHTML='<div class="kk-empty">この状態の人はいません。</div>';return;}
+  rows.forEach(p=>{
+    const r=evRowOf(p.id); const st=r?r.status:'none';
+    const div=document.createElement('div'); div.className='kkrow'+(st==='contacted'&&-kkDays(r.acted_at||r.triggered_at)>=7?' soon':'');
+    const when=r?`${st==='contacted'?'声かけ日':'記録日'} ${r.acted_at||r.triggered_at}${r.added_by?' ・ '+r.added_by.split('@')[0]:''}`:'';
+    let btns='';
+    if(!r){
+      btns=`<input id="evnote-${p.id}" class="evnote" placeholder="声かけメモ (任意: 手段・反応など)">
+        <div class="btns"><button class="p" onclick="evRecord(${p.id},'contacted')">声かけした</button>
+        <button class="g" onclick="evRecord(${p.id},'won')">参加</button>
+        <button onclick="evRecord(${p.id},'skip')">対象外</button></div>`;
+    }else{
+      btns=`<input id="evnote-${p.id}" class="evnote" value="${esc(r.note||'')}" placeholder="メモ (変更すると保存)" onchange="evNote(${r.id},${p.id})">`;
+      if(st==='contacted'){
+        btns+=`<div class="btns"><button class="g" onclick="evUpdate(${r.id},'won')">参加</button>
+          <button onclick="evUpdate(${r.id},'passed')">不参加</button>
+          <button onclick="evUpdate(${r.id},'no_response')">反応なし</button>
+          <button onclick="evUndo(${r.id})" title="声かけの記録を削除して未声かけに戻す">取り消す</button></div>`;
+      }else{
+        btns+=`<div class="btns"><button onclick="evUpdate(${r.id},'contacted')">返事待ちに戻す</button>
+          <button onclick="evUndo(${r.id})" title="記録を削除して未声かけに戻す">取り消す</button></div>`;
+      }
+    }
+    div.innerHTML=`<div>
+        <div class="nm" onclick="openDetail(${p.id})">${esc(p.name)}<span class="rm" onclick="event.stopPropagation();evRemovePerson(${p.id})" title="このイベントの対象から外す（タグを外します）">対象から外す</span></div>
+        <div class="sub">${esc(p.email||'email不明')}${p.company?' ・ '+esc(p.company):''}${p.stage||p.standing?' ・ '+[p.stage,p.standing].filter(Boolean).map(esc).join(' × '):''}</div>
+        <div class="reason"><span class="ibadge st-${st}">${EV_STATUS[st]}</span>${when?`<span class="sub" style="display:inline">${esc(when)}</span>`:''}</div>
+      </div>
+      <div class="acts">${btns}</div>`;
+    list.appendChild(div);
+  });
+}
+async function evRecord(pid,status){
+  const c=evCurrent(); if(!c)return;
+  const noteEl=document.getElementById('evnote-'+pid); const note=noteEl?noteEl.value.trim():'';
+  const itype=c.itype||(kk.types[0]?kk.types[0].itype:null);
+  const row={person_id:pid,itype,status,triggered_at:kkToday(),acted_at:kkToday(),note,added_by:userEmail,updated_at:new Date().toISOString(),campaign_id:c.id};
+  const {error}=await sb.from('interventions').insert(row);
+  if(error){alert('記録できませんでした: '+error.message);return;}
+  kk.done=[]; // 今月の記録は次回表示時に再読込
+  kk.loaded=false; await loadEvent(true);
+}
+async function evUpdate(id,status){
+  const {error}=await sb.from('interventions').update({status,acted_at:kkToday(),updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert(error.message);return;}
+  kk.loaded=false; await loadEvent(true);
+}
+async function evNote(id,pid){
+  const el=document.getElementById('evnote-'+pid); const note=el?el.value.trim():'';
+  const {error}=await sb.from('interventions').update({note,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert('メモを保存できませんでした: '+error.message);return;}
+  const r=kk.ev.rows.find(x=>x.id===id); if(r)r.note=note; renderEvent();
+}
+async function evUndo(id){
+  if(!confirm('この記録を取り消しますか？（未声かけに戻ります）'))return;
+  const {error}=await sb.from('interventions').delete().eq('id',id);
+  if(error){alert(error.message);return;}
+  kk.loaded=false; await loadEvent(true);
+}
+async function evSetTag(p,add){
+  const c=evCurrent(); if(!c)return false;
+  let arr=personTags(p);
+  if(add){ if(!arr.includes(c.target_tag))arr.push(c.target_tag); } else { arr=arr.filter(t=>t!==c.target_tag); }
+  const newTags=arr.join(', ');
+  const {error}=await sb.from('persons').update({tags:newTags,updated_by:userEmail,updated_at:new Date().toISOString()}).eq('id',p.id);
+  if(error){alert('タグを更新できませんでした: '+error.message);return false;}
+  p.tags=newTags; if(typeof buildChips==='function')buildChips(); return true;
+}
+async function evAddPerson(){
+  const q=document.getElementById('evAddName').value.trim(); if(!q)return;
+  const m=q.match(/<([^>]+)>\s*$/); const email=m?m[1].trim().toLowerCase():null; const name=q.replace(/<[^>]*>\s*$/,'').trim();
+  let p=null;
+  if(email)p=persons.find(x=>(x.email||'').toLowerCase()===email);
+  if(!p){const hits=persons.filter(x=>x.name===name||(x.email||'').toLowerCase()===name.toLowerCase()); if(hits.length===1)p=hits[0]; else if(hits.length>1){alert('同じ名前の人が複数います。候補からメール付きで選んでください');return;}}
+  if(!p){alert('名簿に見つかりませんでした。名簿タブで先に登録してください');return;}
+  if(await evSetTag(p,true))renderEvent();
+}
+async function evRemovePerson(pid){
+  const p=persons.find(x=>x.id===pid); const c=evCurrent(); if(!p||!c)return;
+  if(!confirm(`${p.name} をこのイベントの対象から外しますか？（タグ「${c.target_tag}」を外します。声かけの記録は残ります）`))return;
+  if(await evSetTag(p,false))renderEvent();
+}
+async function evCopy(){
+  const c=evCurrent(); if(!c){alert('イベントを選んでください');return;}
+  const rows=evFilterRows(); const fl=EV_FILTERS.find(([k])=>k===kk.ev.filter);
+  const lines=[`${c.name}（${c.event_date||''}） ${fl?fl[1]:''} ${rows.length}人`, '名前\tメール\t会社\t状態\t日付\tメモ'];
+  rows.forEach(p=>{const r=evRowOf(p.id);lines.push([p.name,p.email||'',p.company||'',EV_STATUS[r?r.status:'none'],r?(r.acted_at||r.triggered_at||''):'',r?(r.note||'').replace(/\s+/g,' '):''].join('\t'));});
+  try{ await navigator.clipboard.writeText(lines.join('\n')); alert(`${rows.length}人分をコピーしました（タブ区切り。スプレッドシートに貼り付けられます）`); }
+  catch(e){ prompt('コピーできなかったので、ここから選択してコピーしてください', lines.join('\n')); }
 }
 
 </script>
